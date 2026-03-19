@@ -1,0 +1,62 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# Build output
+/cmd/cli/blockchain-cert
+/bin/
+/build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Test files (example PDFs used for testing)
+# Uncomment if you don't want to track test files:
+# cmd/cli/*.pdf
+
+# Contract artifacts (if using Hardhat or Foundry)
+artifacts/
+cache/
+out/
+
+# Node modules (if adding JS tooling for contracts)
+node_modules/
+
+# Private keys and wallets
+*.key
+*.keystore
+keystore/
+wallet.json
