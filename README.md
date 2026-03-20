@@ -114,14 +114,11 @@ Anyone can query: validateCertificate(hash) ──▶ true/false
 blockchain-cert/
 ├── cmd/
 │   └── cli/
-│       ├── main.go           # CLI entry point
+│       ├── main.go           # CLI entry point with clean code architecture
 │       └── title.pdf          # Example test file
 ├── internal/
 │   ├── blockchain/
-│   │   ├── client.go          # Ethereum client connection
 │   │   └── certifyer.go       # Auto-generated contract bindings
-│   └── crypto/
-│       └── hash.go            # SHA-256 file hashing
 ├── contracts/
 │   └── Certifyer.sol          # Solidity smart contract
 ├── out/                       # Foundry build artifacts (auto-generated)
@@ -137,10 +134,8 @@ blockchain-cert/
 
 ### Key Directories
 
-- **`cmd/cli/`**: Command-line interface executable
-- **`internal/`**: Private Go packages (cannot be imported externally)
-  - **`blockchain/`**: Ethereum client and smart contract bindings
-  - **`crypto/`**: Cryptographic utilities
+- **`cmd/cli/`**: Command-line interface executable with register and verify functionality
+- **`internal/blockchain/`**: Smart contract bindings for Ethereum interaction
 - **`contracts/`**: Solidity smart contracts source code
 - **`out/`**: Foundry compilation artifacts
 
@@ -287,39 +282,75 @@ abigen --abi out/Certifyer.abi \
 
 ## 🎮 Usage
 
+The CLI now supports two main operations: **registering** and **verifying** certificates.
+
 ### Register a Certificate
 
 ```bash
 cd cmd/cli
 
-# Certify a document
-go run main.go <file_path>
+# Register a document certificate on the blockchain
+go run main.go register <file_path>
 
 # Example
-go run main.go title.pdf
+go run main.go register title.pdf
 ```
 
 **Expected Output:**
 
 ```
-Generated Hash: 0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
 Success connecting to Alchemy
+Generated Hash: 0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
 Hash registered successfully! Transaction Hash: 0x123456789...
 ```
 
-### Verify the Transaction
+### Verify a Certificate
 
-1. Copy the transaction hash
+```bash
+cd cmd/cli
+
+# Verify if a document is registered on the blockchain
+go run main.go verify <file_path>
+
+# Example
+go run main.go verify title.pdf
+```
+
+**Expected Output (if registered):**
+
+```
+Success connecting to Alchemy
+Generated Hash: 0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
+
+---Verification Result---
+The certificate with hash 0xabcd1234... is valid and registered on the blockchain.
+-------------------------
+```
+
+**Expected Output (if NOT registered):**
+
+```
+Success connecting to Alchemy
+Generated Hash: 0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
+
+---Verification Result---
+The certificate with hash 0xabcd1234... is NOT registered on the blockchain.
+-------------------------
+```
+
+### Verify Transaction on Blockchain Explorer
+
+1. Copy the transaction hash from registration
 2. Visit [Polygon Amoy Explorer](https://amoy.polygonscan.com/)
 3. Paste the transaction hash
 4. View the `CertificateCreated` event
 
-### Query Contract State
+### Query Contract State via CLI
 
 ```bash
-# Check if a hash is certified
+# Alternative: Check if a hash is certified using Foundry
 cast call $CONTRACT_ADDRESS \
-  "validateCertificate(bytes32)(bool)" \
+  "certificates(bytes32)(bool)" \
   0xYOUR_HASH_HERE \
   --rpc-url $ALCHEMY_URL
 ```
@@ -363,16 +394,17 @@ cast call $CONTRACT_ADDRESS \
 
 ```bash
 # 1. Make changes to Go code
-vim internal/crypto/hash.go
+vim cmd/cli/main.go
 
-# 2. Test locally
+# 2. Test registration locally
 cd cmd/cli
-go run main.go test_file.pdf
+go run main.go register test_file.pdf
 
-# 3. Verify connection
-# Expected: "Success connecting to Alchemy"
+# 3. Verify the certificate
+go run main.go verify test_file.pdf
 
 # 4. Check transaction on blockchain explorer
+# Visit https://amoy.polygonscan.com/ with transaction hash
 ```
 
 ### Modifying the Smart Contract
@@ -406,14 +438,62 @@ go build
 
 ---
 
+## 🏛️ Clean Code Architecture
+
+The CLI has been refactored following clean code principles:
+
+### Separation of Concerns
+
+The main file is now organized into **focused functions** with single responsibilities:
+
+- **`main()`**: Orchestrates flow, parses arguments, delegates to specialized functions
+- **`generateHash()`**: Pure function for file hashing
+- **`registerCertificate()`**: Handles blockchain registration logic
+- **`verifyCertificate()`**: Handles blockchain verification logic
+
+### Benefits of Current Architecture
+
+✅ **Modularity**: Each function does one thing well  
+✅ **Testability**: Functions can be unit tested independently  
+✅ **Readability**: Clear function names describe intent  
+✅ **Maintainability**: Easy to modify or extend functionality  
+✅ **Error Handling**: Consistent error propagation pattern  
+
+### Command Pattern
+
+The CLI uses a simple command pattern:
+
+```go
+switch action {
+case "register":
+    registerCertificate(client, contractAddress, hash)
+case "verify":
+    verifyCertificate(client, contractAddress, hash)
+default:
+    fmt.Println("Unknown action. Use 'register' or 'verify'.")
+}
+```
+
+This makes it easy to add new commands in the future (e.g., `batch`, `revoke`, `list`).
+
+---
+
 ## 🛠️ Technical Deep Dive
 
 ### How Hashing Works
 
+The system uses a clean, modular approach to file hashing:
+
 ```go
-// The system uses Keccak256 (Ethereum standard)
-hashBytes, _ := os.ReadFile(pdfPath)
-hash := crypto.Keccak256Hash(hashBytes).Hex()
+// generateHash creates a Keccak256 hash of any file
+func generateHash(filePath string) (string, error) {
+    file, err := os.ReadFile(filePath)
+    if err != nil {
+        return "", err
+    }
+    hash := crypto.Keccak256Hash(file).Hex()
+    return hash, nil
+}
 // Result: 0x + 64 hex characters (32 bytes)
 ```
 
@@ -438,18 +518,62 @@ function registerCertificate(bytes32 datahash) public {
     emit CertificateCreated(datahash, block.timestamp);
 }
 
-// Anyone can verify
-function validateCertificate(bytes32 datahash) public view returns (bool) {
-    return certificates[datahash];
-}
+// Public mapping for verification (anyone can check)
+mapping(bytes32 => bool) public certificates;
 ```
 
 **Key Design Decisions:**
 
 1. **Mapping over array**: O(1) lookup time
 2. **Events for indexing**: Off-chain services can listen for new certificates
-3. **View function**: Verification costs no gas
+3. **Public mapping**: Verification costs no gas (automatic getter)
 4. **No deletion**: Immutable by design
+
+### Certificate Registration Flow
+
+```go
+func registerCertificate(client *ethclient.Client, contractAddress common.Address, fileHash string) {
+    // 1. Load private key and create authorized signer
+    privateKey, _ := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
+    chainID, _ := client.NetworkID(context.Background())
+    auth, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
+    
+    // 2. Instantiate smart contract
+    instance, _ := blockchain.NewCertifyer(contractAddress, client)
+    
+    // 3. Convert hash to bytes32
+    var dataHash [32]byte
+    copy(dataHash[:], common.FromHex(fileHash))
+    
+    // 4. Submit transaction
+    tx, _ := instance.RegisterCertificate(auth, dataHash)
+    fmt.Printf("Transaction Hash: %s\n", tx.Hash().Hex())
+}
+```
+
+### Certificate Verification Flow
+
+```go
+func verifyCertificate(client *ethclient.Client, contractAddress common.Address, fileHash string) {
+    // 1. Instantiate smart contract (no auth needed for read-only)
+    instance, _ := blockchain.NewCertifyer(contractAddress, client)
+    
+    // 2. Convert hash to bytes32
+    var hash [32]byte
+    hashBytes, _ := hex.DecodeString(fileHash[2:]) // Remove "0x" prefix
+    copy(hash[:], hashBytes)
+    
+    // 3. Free call to check registration (no gas cost)
+    isValid, _ := instance.Certificates(nil, hash)
+    
+    // 4. Display result
+    if isValid {
+        fmt.Println("Certificate is valid and registered")
+    } else {
+        fmt.Println("Certificate is NOT registered")
+    }
+}
+```
 
 ### Transaction Signing (ECDSA)
 
@@ -475,11 +599,21 @@ This proves **you** authorized the transaction (non-repudiation).
 
 ### Common Issues
 
-#### "Error: ALCHEMY_URL no encontrada en el .env"
+#### "Usage: go run main.go <file_path>"
+
+**Old error**: You forgot to specify the action.
+
+**New usage**:
+```bash
+go run main.go register <file_path>  # To register
+go run main.go verify <file_path>    # To verify
+```
+
+#### "Error: Cant found ALCHEMY_URL in .env file"
 
 - Verify `.env` exists in project root
 - Check `ALCHEMY_URL` is set and not commented
-- Ensure running from correct directory
+- Ensure running from correct directory (`cmd/cli/`)
 
 #### "Cant Connect to Alchemy"
 
@@ -498,6 +632,12 @@ This proves **you** authorized the transaction (non-repudiation).
 - Ensure key starts with `0x`
 - Verify key is 64 hex characters (32 bytes)
 - Export from Metamask: Account Details → Export Private Key
+
+#### "Unknown action. Use 'register' or 'verify'."
+
+- You provided an invalid action
+- Valid actions: `register`, `verify`
+- Example: `go run main.go register file.pdf`
 
 #### Go module errors
 
@@ -527,7 +667,7 @@ _Gas costs on Polygon Amoy testnet (free). Mainnet costs will vary with POL pric
 ### Planned Features
 
 1. ✅ Certificate registration
-2. ⏳ Certificate validation CLI command
+2. ✅ Certificate validation CLI command
 3. ⏳ Batch certificate registration
 4. ⏳ Certificate revocation mechanism
 5. ⏳ Web interface (REST API)
