@@ -5,9 +5,11 @@ A professional-grade blockchain-based document certification system built with G
 ## 🎯 Purpose & Importance
 
 ### The Problem
+
 Traditional document certification systems rely on centralized authorities that can be compromised, corrupted, or become unavailable. Physical seals and signatures can be forged, and centralized databases can be tampered with.
 
 ### The Solution
+
 This system creates an **immutable, decentralized registry** of document authenticity. Instead of storing the actual files (which would be expensive and impractical on blockchain), we store their cryptographic "fingerprints" (hashes). This approach provides:
 
 - **Immutability**: Once registered, a certificate cannot be altered or deleted
@@ -18,6 +20,7 @@ This system creates an **immutable, decentralized registry** of document authent
 - **Cost Efficiency**: Only hashes are stored on-chain, minimizing gas costs
 
 ### Real-World Applications
+
 - **Academic Credentials**: Universities can certify degrees and transcripts
 - **Legal Documents**: Lawyers can timestamp and verify contracts
 - **Medical Records**: Hospitals can prove authenticity of patient records
@@ -38,11 +41,11 @@ This system creates an **immutable, decentralized registry** of document authent
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      APPLICATION LAYER (Go)                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐   │
-│  │ Crypto Layer │  │   Ethereum   │  │   Smart Contract   │   │
-│  │  (Hashing)   │  │    Client    │  │    Bindings (ABI)  │   │
-│  └──────────────┘  └──────────────┘  └────────────────────┘   │
+│                      APPLICATION LAYER (Go)                     |
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐     │
+│  │ Crypto Layer │  │   Ethereum   │  │   Smart Contract   │     │
+│  │  (Hashing)   │  │    Client    │  │    Bindings (ABI)  │     │
+│  └──────────────┘  └──────────────┘  └────────────────────┘     │
 └────────────────────────┬────────────────────────────────────────┘
                          │
                          ▼
@@ -90,18 +93,18 @@ Anyone can query: validateCertificate(hash) ──▶ true/false
 
 ## 🔧 Technology Stack
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Language** | Go 1.25+ | High-performance CLI application |
-| **Smart Contract** | Solidity 0.8.19 | On-chain certificate registry |
-| **Blockchain** | Polygon Amoy Testnet | Ethereum-compatible network |
-| **Node Provider** | Alchemy | RPC gateway to blockchain |
-| **Development Framework** | Foundry (Forge/Cast) | Smart contract compilation & deployment |
-| **Blockchain Client** | go-ethereum v1.17.1 | Ethereum interaction library |
-| **Cryptography** | SHA-256/Keccak256 | Document hashing |
-| **Environment Management** | godotenv | Secure configuration |
-| **JSON Processing** | jq | ABI extraction |
-| **Code Generation** | abigen | Go bindings from Solidity ABI |
+| Layer                      | Technology           | Purpose                                 |
+| -------------------------- | -------------------- | --------------------------------------- |
+| **Language**               | Go 1.25+             | High-performance CLI application        |
+| **Smart Contract**         | Solidity 0.8.19      | On-chain certificate registry           |
+| **Blockchain**             | Polygon Amoy Testnet | Ethereum-compatible network             |
+| **Node Provider**          | Alchemy              | RPC gateway to blockchain               |
+| **Development Framework**  | Foundry (Forge/Cast) | Smart contract compilation & deployment |
+| **Blockchain Client**      | go-ethereum v1.17.1  | Ethereum interaction library            |
+| **Cryptography**           | SHA-256/Keccak256    | Document hashing                        |
+| **Environment Management** | godotenv             | Secure configuration                    |
+| **JSON Processing**        | jq                   | ABI extraction                          |
+| **Code Generation**        | abigen               | Go bindings from Solidity ABI           |
 
 ---
 
@@ -252,6 +255,7 @@ forge create --rpc-url $ALCHEMY_URL \
 ```
 
 **Expected Output:**
+
 ```
 Deployer: 0xYourAddress
 Deployed to: 0xCONTRACT_ADDRESS_HERE
@@ -296,6 +300,7 @@ go run main.go title.pdf
 ```
 
 **Expected Output:**
+
 ```
 Generated Hash: 0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
 Success connecting to Alchemy
@@ -326,12 +331,14 @@ cast call $CONTRACT_ADDRESS \
 ### Current Implementation
 
 ✅ **Strengths:**
+
 - Private keys stored in `.env` (not hardcoded)
 - Admin-only certificate registration (access control)
 - Immutable records (cannot be deleted or modified)
 - Cryptographic hashing (SHA-256/Keccak256)
 
 ⚠️ **Areas for Improvement:**
+
 - No private key encryption at rest
 - Single admin point of failure
 - No rate limiting on RPC calls
@@ -411,6 +418,7 @@ hash := crypto.Keccak256Hash(hashBytes).Hex()
 ```
 
 **Why Keccak256?**
+
 - Ethereum standard (compatible with Solidity `bytes32`)
 - Deterministic (same file = same hash)
 - Collision-resistant (practically impossible to forge)
@@ -437,6 +445,7 @@ function validateCertificate(bytes32 datahash) public view returns (bool) {
 ```
 
 **Key Design Decisions:**
+
 1. **Mapping over array**: O(1) lookup time
 2. **Events for indexing**: Off-chain services can listen for new certificates
 3. **View function**: Verification costs no gas
@@ -467,26 +476,31 @@ This proves **you** authorized the transaction (non-repudiation).
 ### Common Issues
 
 #### "Error: ALCHEMY_URL no encontrada en el .env"
+
 - Verify `.env` exists in project root
 - Check `ALCHEMY_URL` is set and not commented
 - Ensure running from correct directory
 
 #### "Cant Connect to Alchemy"
+
 - Verify Alchemy URL is correct
 - Check internet connectivity
 - Confirm API key is valid
 - Test with: `curl $ALCHEMY_URL -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'`
 
 #### "Failed to register hash: insufficient funds"
+
 - Request testnet tokens from [Polygon Faucet](https://faucet.polygon.technology/)
 - Check balance: `cast balance YOUR_ADDRESS --rpc-url $ALCHEMY_URL`
 
 #### "Invalid PRIVATE_KEY"
+
 - Ensure key starts with `0x`
 - Verify key is 64 hex characters (32 bytes)
 - Export from Metamask: Account Details → Export Private Key
 
 #### Go module errors
+
 ```bash
 go clean -modcache
 go mod download
@@ -497,20 +511,21 @@ go mod tidy
 
 ## 📊 Performance Metrics
 
-| Operation | Time | Cost (Gas) |
-|-----------|------|------------|
-| Local hash generation | ~10ms | Free |
-| Transaction submission | 2-30s | ~50,000 gas (~$0.01) |
-| Certificate validation | <1s | Free (view function) |
-| Contract deployment | ~30s | ~300,000 gas (~$0.05) |
+| Operation              | Time  | Cost (Gas)            |
+| ---------------------- | ----- | --------------------- |
+| Local hash generation  | ~10ms | Free                  |
+| Transaction submission | 2-30s | ~50,000 gas (~$0.01)  |
+| Certificate validation | <1s   | Free (view function)  |
+| Contract deployment    | ~30s  | ~300,000 gas (~$0.05) |
 
-*Gas costs on Polygon Amoy testnet (free). Mainnet costs will vary with POL price.*
+_Gas costs on Polygon Amoy testnet (free). Mainnet costs will vary with POL price._
 
 ---
 
 ## 🚧 Future Development
 
 ### Planned Features
+
 1. ✅ Certificate registration
 2. ⏳ Certificate validation CLI command
 3. ⏳ Batch certificate registration
@@ -551,6 +566,7 @@ Contributions are welcome! Please follow these guidelines:
 8. Open a Pull Request
 
 ### Code Style
+
 - Use `gofmt` for formatting
 - Follow [Effective Go](https://golang.org/doc/effective_go.html)
 - Add comments for exported functions
@@ -577,6 +593,7 @@ MIT License - See LICENSE file for details
 ## 📞 Support
 
 For questions or issues:
+
 - Open an issue on GitHub
 - Check existing documentation in `AGENTS.md`
 - Review transaction on [Polygon Amoy Explorer](https://amoy.polygonscan.com/)
@@ -586,6 +603,7 @@ For questions or issues:
 ## 🙏 Acknowledgments
 
 Built with:
+
 - **Go** - The Go Authors
 - **Solidity** - Ethereum Foundation
 - **Foundry** - Paradigm
@@ -594,4 +612,4 @@ Built with:
 
 ---
 
-*Built by engineers, for engineers. Immutable truth on the blockchain.*
+_Built by engineers, for engineers. Immutable truth on the blockchain._
