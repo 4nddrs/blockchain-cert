@@ -29,9 +29,18 @@ var (
 	_ = abi.ConvertType
 )
 
+// CertifyerCertificate is an auto generated low-level Go binding around an user-defined struct.
+type CertifyerCertificate struct {
+	StudentName string
+	CourseName  string
+	IssuerName  string
+	DateEmited  *big.Int
+	IsValid     bool
+}
+
 // CertifyerMetaData contains all meta data concerning the Certifyer contract.
 var CertifyerMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"admin\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"certificates\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerCertificate\",\"inputs\":[{\"name\":\"datahash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"validateCertificate\",\"inputs\":[{\"name\":\"datahash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"CertificateCreated\",\"inputs\":[{\"name\":\"datahash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addAuthorizedIssuer\",\"inputs\":[{\"name\":\"issuer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"authorizedIssuers\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"certificates\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"studentName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"courseName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"issuerName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"dateEmited\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"isValid\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerCertificate\",\"inputs\":[{\"name\":\"datahash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"studentName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"courseName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"issuerName\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"validateCertificate\",\"inputs\":[{\"name\":\"datahash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structCertifyer.Certificate\",\"components\":[{\"name\":\"studentName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"courseName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"issuerName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"dateEmited\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"isValid\",\"type\":\"bool\",\"internalType\":\"bool\"}]}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"CertificateCreated\",\"inputs\":[{\"name\":\"datahash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"studentName\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"issuer\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"IssuerAuthorized\",\"inputs\":[{\"name\":\"issuer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false}]",
 }
 
 // CertifyerABI is the input ABI used to generate the binding from.
@@ -180,12 +189,103 @@ func (_Certifyer *CertifyerTransactorRaw) Transact(opts *bind.TransactOpts, meth
 	return _Certifyer.Contract.contract.Transact(opts, method, params...)
 }
 
-// Admin is a free data retrieval call binding the contract method 0xf851a440.
+// AuthorizedIssuers is a free data retrieval call binding the contract method 0xf731fa0f.
 //
-// Solidity: function admin() view returns(address)
-func (_Certifyer *CertifyerCaller) Admin(opts *bind.CallOpts) (common.Address, error) {
+// Solidity: function authorizedIssuers(address ) view returns(bool)
+func (_Certifyer *CertifyerCaller) AuthorizedIssuers(opts *bind.CallOpts, arg0 common.Address) (bool, error) {
 	var out []interface{}
-	err := _Certifyer.contract.Call(opts, &out, "admin")
+	err := _Certifyer.contract.Call(opts, &out, "authorizedIssuers", arg0)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// AuthorizedIssuers is a free data retrieval call binding the contract method 0xf731fa0f.
+//
+// Solidity: function authorizedIssuers(address ) view returns(bool)
+func (_Certifyer *CertifyerSession) AuthorizedIssuers(arg0 common.Address) (bool, error) {
+	return _Certifyer.Contract.AuthorizedIssuers(&_Certifyer.CallOpts, arg0)
+}
+
+// AuthorizedIssuers is a free data retrieval call binding the contract method 0xf731fa0f.
+//
+// Solidity: function authorizedIssuers(address ) view returns(bool)
+func (_Certifyer *CertifyerCallerSession) AuthorizedIssuers(arg0 common.Address) (bool, error) {
+	return _Certifyer.Contract.AuthorizedIssuers(&_Certifyer.CallOpts, arg0)
+}
+
+// Certificates is a free data retrieval call binding the contract method 0x742f0688.
+//
+// Solidity: function certificates(bytes32 ) view returns(string studentName, string courseName, string issuerName, uint256 dateEmited, bool isValid)
+func (_Certifyer *CertifyerCaller) Certificates(opts *bind.CallOpts, arg0 [32]byte) (struct {
+	StudentName string
+	CourseName  string
+	IssuerName  string
+	DateEmited  *big.Int
+	IsValid     bool
+}, error) {
+	var out []interface{}
+	err := _Certifyer.contract.Call(opts, &out, "certificates", arg0)
+
+	outstruct := new(struct {
+		StudentName string
+		CourseName  string
+		IssuerName  string
+		DateEmited  *big.Int
+		IsValid     bool
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.StudentName = *abi.ConvertType(out[0], new(string)).(*string)
+	outstruct.CourseName = *abi.ConvertType(out[1], new(string)).(*string)
+	outstruct.IssuerName = *abi.ConvertType(out[2], new(string)).(*string)
+	outstruct.DateEmited = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.IsValid = *abi.ConvertType(out[4], new(bool)).(*bool)
+
+	return *outstruct, err
+
+}
+
+// Certificates is a free data retrieval call binding the contract method 0x742f0688.
+//
+// Solidity: function certificates(bytes32 ) view returns(string studentName, string courseName, string issuerName, uint256 dateEmited, bool isValid)
+func (_Certifyer *CertifyerSession) Certificates(arg0 [32]byte) (struct {
+	StudentName string
+	CourseName  string
+	IssuerName  string
+	DateEmited  *big.Int
+	IsValid     bool
+}, error) {
+	return _Certifyer.Contract.Certificates(&_Certifyer.CallOpts, arg0)
+}
+
+// Certificates is a free data retrieval call binding the contract method 0x742f0688.
+//
+// Solidity: function certificates(bytes32 ) view returns(string studentName, string courseName, string issuerName, uint256 dateEmited, bool isValid)
+func (_Certifyer *CertifyerCallerSession) Certificates(arg0 [32]byte) (struct {
+	StudentName string
+	CourseName  string
+	IssuerName  string
+	DateEmited  *big.Int
+	IsValid     bool
+}, error) {
+	return _Certifyer.Contract.Certificates(&_Certifyer.CallOpts, arg0)
+}
+
+// Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
+//
+// Solidity: function owner() view returns(address)
+func (_Certifyer *CertifyerCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Certifyer.contract.Call(opts, &out, "owner")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -197,63 +297,32 @@ func (_Certifyer *CertifyerCaller) Admin(opts *bind.CallOpts) (common.Address, e
 
 }
 
-// Admin is a free data retrieval call binding the contract method 0xf851a440.
+// Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
-// Solidity: function admin() view returns(address)
-func (_Certifyer *CertifyerSession) Admin() (common.Address, error) {
-	return _Certifyer.Contract.Admin(&_Certifyer.CallOpts)
+// Solidity: function owner() view returns(address)
+func (_Certifyer *CertifyerSession) Owner() (common.Address, error) {
+	return _Certifyer.Contract.Owner(&_Certifyer.CallOpts)
 }
 
-// Admin is a free data retrieval call binding the contract method 0xf851a440.
+// Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
-// Solidity: function admin() view returns(address)
-func (_Certifyer *CertifyerCallerSession) Admin() (common.Address, error) {
-	return _Certifyer.Contract.Admin(&_Certifyer.CallOpts)
-}
-
-// Certificates is a free data retrieval call binding the contract method 0x742f0688.
-//
-// Solidity: function certificates(bytes32 ) view returns(bool)
-func (_Certifyer *CertifyerCaller) Certificates(opts *bind.CallOpts, arg0 [32]byte) (bool, error) {
-	var out []interface{}
-	err := _Certifyer.contract.Call(opts, &out, "certificates", arg0)
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-// Certificates is a free data retrieval call binding the contract method 0x742f0688.
-//
-// Solidity: function certificates(bytes32 ) view returns(bool)
-func (_Certifyer *CertifyerSession) Certificates(arg0 [32]byte) (bool, error) {
-	return _Certifyer.Contract.Certificates(&_Certifyer.CallOpts, arg0)
-}
-
-// Certificates is a free data retrieval call binding the contract method 0x742f0688.
-//
-// Solidity: function certificates(bytes32 ) view returns(bool)
-func (_Certifyer *CertifyerCallerSession) Certificates(arg0 [32]byte) (bool, error) {
-	return _Certifyer.Contract.Certificates(&_Certifyer.CallOpts, arg0)
+// Solidity: function owner() view returns(address)
+func (_Certifyer *CertifyerCallerSession) Owner() (common.Address, error) {
+	return _Certifyer.Contract.Owner(&_Certifyer.CallOpts)
 }
 
 // ValidateCertificate is a free data retrieval call binding the contract method 0xe4f50ff9.
 //
-// Solidity: function validateCertificate(bytes32 datahash) view returns(bool)
-func (_Certifyer *CertifyerCaller) ValidateCertificate(opts *bind.CallOpts, datahash [32]byte) (bool, error) {
+// Solidity: function validateCertificate(bytes32 datahash) view returns((string,string,string,uint256,bool))
+func (_Certifyer *CertifyerCaller) ValidateCertificate(opts *bind.CallOpts, datahash [32]byte) (CertifyerCertificate, error) {
 	var out []interface{}
 	err := _Certifyer.contract.Call(opts, &out, "validateCertificate", datahash)
 
 	if err != nil {
-		return *new(bool), err
+		return *new(CertifyerCertificate), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	out0 := *abi.ConvertType(out[0], new(CertifyerCertificate)).(*CertifyerCertificate)
 
 	return out0, err
 
@@ -261,37 +330,58 @@ func (_Certifyer *CertifyerCaller) ValidateCertificate(opts *bind.CallOpts, data
 
 // ValidateCertificate is a free data retrieval call binding the contract method 0xe4f50ff9.
 //
-// Solidity: function validateCertificate(bytes32 datahash) view returns(bool)
-func (_Certifyer *CertifyerSession) ValidateCertificate(datahash [32]byte) (bool, error) {
+// Solidity: function validateCertificate(bytes32 datahash) view returns((string,string,string,uint256,bool))
+func (_Certifyer *CertifyerSession) ValidateCertificate(datahash [32]byte) (CertifyerCertificate, error) {
 	return _Certifyer.Contract.ValidateCertificate(&_Certifyer.CallOpts, datahash)
 }
 
 // ValidateCertificate is a free data retrieval call binding the contract method 0xe4f50ff9.
 //
-// Solidity: function validateCertificate(bytes32 datahash) view returns(bool)
-func (_Certifyer *CertifyerCallerSession) ValidateCertificate(datahash [32]byte) (bool, error) {
+// Solidity: function validateCertificate(bytes32 datahash) view returns((string,string,string,uint256,bool))
+func (_Certifyer *CertifyerCallerSession) ValidateCertificate(datahash [32]byte) (CertifyerCertificate, error) {
 	return _Certifyer.Contract.ValidateCertificate(&_Certifyer.CallOpts, datahash)
 }
 
-// RegisterCertificate is a paid mutator transaction binding the contract method 0xf101dce8.
+// AddAuthorizedIssuer is a paid mutator transaction binding the contract method 0x9c2b1d21.
 //
-// Solidity: function registerCertificate(bytes32 datahash) returns()
-func (_Certifyer *CertifyerTransactor) RegisterCertificate(opts *bind.TransactOpts, datahash [32]byte) (*types.Transaction, error) {
-	return _Certifyer.contract.Transact(opts, "registerCertificate", datahash)
+// Solidity: function addAuthorizedIssuer(address issuer) returns()
+func (_Certifyer *CertifyerTransactor) AddAuthorizedIssuer(opts *bind.TransactOpts, issuer common.Address) (*types.Transaction, error) {
+	return _Certifyer.contract.Transact(opts, "addAuthorizedIssuer", issuer)
 }
 
-// RegisterCertificate is a paid mutator transaction binding the contract method 0xf101dce8.
+// AddAuthorizedIssuer is a paid mutator transaction binding the contract method 0x9c2b1d21.
 //
-// Solidity: function registerCertificate(bytes32 datahash) returns()
-func (_Certifyer *CertifyerSession) RegisterCertificate(datahash [32]byte) (*types.Transaction, error) {
-	return _Certifyer.Contract.RegisterCertificate(&_Certifyer.TransactOpts, datahash)
+// Solidity: function addAuthorizedIssuer(address issuer) returns()
+func (_Certifyer *CertifyerSession) AddAuthorizedIssuer(issuer common.Address) (*types.Transaction, error) {
+	return _Certifyer.Contract.AddAuthorizedIssuer(&_Certifyer.TransactOpts, issuer)
 }
 
-// RegisterCertificate is a paid mutator transaction binding the contract method 0xf101dce8.
+// AddAuthorizedIssuer is a paid mutator transaction binding the contract method 0x9c2b1d21.
 //
-// Solidity: function registerCertificate(bytes32 datahash) returns()
-func (_Certifyer *CertifyerTransactorSession) RegisterCertificate(datahash [32]byte) (*types.Transaction, error) {
-	return _Certifyer.Contract.RegisterCertificate(&_Certifyer.TransactOpts, datahash)
+// Solidity: function addAuthorizedIssuer(address issuer) returns()
+func (_Certifyer *CertifyerTransactorSession) AddAuthorizedIssuer(issuer common.Address) (*types.Transaction, error) {
+	return _Certifyer.Contract.AddAuthorizedIssuer(&_Certifyer.TransactOpts, issuer)
+}
+
+// RegisterCertificate is a paid mutator transaction binding the contract method 0x3ea27e26.
+//
+// Solidity: function registerCertificate(bytes32 datahash, string studentName, string courseName, string issuerName) returns()
+func (_Certifyer *CertifyerTransactor) RegisterCertificate(opts *bind.TransactOpts, datahash [32]byte, studentName string, courseName string, issuerName string) (*types.Transaction, error) {
+	return _Certifyer.contract.Transact(opts, "registerCertificate", datahash, studentName, courseName, issuerName)
+}
+
+// RegisterCertificate is a paid mutator transaction binding the contract method 0x3ea27e26.
+//
+// Solidity: function registerCertificate(bytes32 datahash, string studentName, string courseName, string issuerName) returns()
+func (_Certifyer *CertifyerSession) RegisterCertificate(datahash [32]byte, studentName string, courseName string, issuerName string) (*types.Transaction, error) {
+	return _Certifyer.Contract.RegisterCertificate(&_Certifyer.TransactOpts, datahash, studentName, courseName, issuerName)
+}
+
+// RegisterCertificate is a paid mutator transaction binding the contract method 0x3ea27e26.
+//
+// Solidity: function registerCertificate(bytes32 datahash, string studentName, string courseName, string issuerName) returns()
+func (_Certifyer *CertifyerTransactorSession) RegisterCertificate(datahash [32]byte, studentName string, courseName string, issuerName string) (*types.Transaction, error) {
+	return _Certifyer.Contract.RegisterCertificate(&_Certifyer.TransactOpts, datahash, studentName, courseName, issuerName)
 }
 
 // CertifyerCertificateCreatedIterator is returned from FilterCertificateCreated and is used to iterate over the raw logs and unpacked data for CertificateCreated events raised by the Certifyer contract.
@@ -363,14 +453,15 @@ func (it *CertifyerCertificateCreatedIterator) Close() error {
 
 // CertifyerCertificateCreated represents a CertificateCreated event raised by the Certifyer contract.
 type CertifyerCertificateCreated struct {
-	Datahash  [32]byte
-	Timestamp *big.Int
-	Raw       types.Log // Blockchain specific contextual infos
+	Datahash    [32]byte
+	StudentName string
+	Issuer      string
+	Raw         types.Log // Blockchain specific contextual infos
 }
 
-// FilterCertificateCreated is a free log retrieval operation binding the contract event 0xbd5a05444054f4f4d80536c2d1b53f08c81a842c88390bbddbe576f68730bbfa.
+// FilterCertificateCreated is a free log retrieval operation binding the contract event 0xc308e0620d276f91536296ccba2387d19fdf0b4d339e2ed4818aa15c23454b1e.
 //
-// Solidity: event CertificateCreated(bytes32 indexed datahash, uint256 timestamp)
+// Solidity: event CertificateCreated(bytes32 indexed datahash, string studentName, string issuer)
 func (_Certifyer *CertifyerFilterer) FilterCertificateCreated(opts *bind.FilterOpts, datahash [][32]byte) (*CertifyerCertificateCreatedIterator, error) {
 
 	var datahashRule []interface{}
@@ -385,9 +476,9 @@ func (_Certifyer *CertifyerFilterer) FilterCertificateCreated(opts *bind.FilterO
 	return &CertifyerCertificateCreatedIterator{contract: _Certifyer.contract, event: "CertificateCreated", logs: logs, sub: sub}, nil
 }
 
-// WatchCertificateCreated is a free log subscription operation binding the contract event 0xbd5a05444054f4f4d80536c2d1b53f08c81a842c88390bbddbe576f68730bbfa.
+// WatchCertificateCreated is a free log subscription operation binding the contract event 0xc308e0620d276f91536296ccba2387d19fdf0b4d339e2ed4818aa15c23454b1e.
 //
-// Solidity: event CertificateCreated(bytes32 indexed datahash, uint256 timestamp)
+// Solidity: event CertificateCreated(bytes32 indexed datahash, string studentName, string issuer)
 func (_Certifyer *CertifyerFilterer) WatchCertificateCreated(opts *bind.WatchOpts, sink chan<- *CertifyerCertificateCreated, datahash [][32]byte) (event.Subscription, error) {
 
 	var datahashRule []interface{}
@@ -427,12 +518,156 @@ func (_Certifyer *CertifyerFilterer) WatchCertificateCreated(opts *bind.WatchOpt
 	}), nil
 }
 
-// ParseCertificateCreated is a log parse operation binding the contract event 0xbd5a05444054f4f4d80536c2d1b53f08c81a842c88390bbddbe576f68730bbfa.
+// ParseCertificateCreated is a log parse operation binding the contract event 0xc308e0620d276f91536296ccba2387d19fdf0b4d339e2ed4818aa15c23454b1e.
 //
-// Solidity: event CertificateCreated(bytes32 indexed datahash, uint256 timestamp)
+// Solidity: event CertificateCreated(bytes32 indexed datahash, string studentName, string issuer)
 func (_Certifyer *CertifyerFilterer) ParseCertificateCreated(log types.Log) (*CertifyerCertificateCreated, error) {
 	event := new(CertifyerCertificateCreated)
 	if err := _Certifyer.contract.UnpackLog(event, "CertificateCreated", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// CertifyerIssuerAuthorizedIterator is returned from FilterIssuerAuthorized and is used to iterate over the raw logs and unpacked data for IssuerAuthorized events raised by the Certifyer contract.
+type CertifyerIssuerAuthorizedIterator struct {
+	Event *CertifyerIssuerAuthorized // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *CertifyerIssuerAuthorizedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(CertifyerIssuerAuthorized)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(CertifyerIssuerAuthorized)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *CertifyerIssuerAuthorizedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *CertifyerIssuerAuthorizedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// CertifyerIssuerAuthorized represents a IssuerAuthorized event raised by the Certifyer contract.
+type CertifyerIssuerAuthorized struct {
+	Issuer common.Address
+	Raw    types.Log // Blockchain specific contextual infos
+}
+
+// FilterIssuerAuthorized is a free log retrieval operation binding the contract event 0x8b4006ca14f23d4e7aa8d120d1ab7c3761d650eefac1a5d6732dbea94b54ea24.
+//
+// Solidity: event IssuerAuthorized(address indexed issuer)
+func (_Certifyer *CertifyerFilterer) FilterIssuerAuthorized(opts *bind.FilterOpts, issuer []common.Address) (*CertifyerIssuerAuthorizedIterator, error) {
+
+	var issuerRule []interface{}
+	for _, issuerItem := range issuer {
+		issuerRule = append(issuerRule, issuerItem)
+	}
+
+	logs, sub, err := _Certifyer.contract.FilterLogs(opts, "IssuerAuthorized", issuerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &CertifyerIssuerAuthorizedIterator{contract: _Certifyer.contract, event: "IssuerAuthorized", logs: logs, sub: sub}, nil
+}
+
+// WatchIssuerAuthorized is a free log subscription operation binding the contract event 0x8b4006ca14f23d4e7aa8d120d1ab7c3761d650eefac1a5d6732dbea94b54ea24.
+//
+// Solidity: event IssuerAuthorized(address indexed issuer)
+func (_Certifyer *CertifyerFilterer) WatchIssuerAuthorized(opts *bind.WatchOpts, sink chan<- *CertifyerIssuerAuthorized, issuer []common.Address) (event.Subscription, error) {
+
+	var issuerRule []interface{}
+	for _, issuerItem := range issuer {
+		issuerRule = append(issuerRule, issuerItem)
+	}
+
+	logs, sub, err := _Certifyer.contract.WatchLogs(opts, "IssuerAuthorized", issuerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(CertifyerIssuerAuthorized)
+				if err := _Certifyer.contract.UnpackLog(event, "IssuerAuthorized", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseIssuerAuthorized is a log parse operation binding the contract event 0x8b4006ca14f23d4e7aa8d120d1ab7c3761d650eefac1a5d6732dbea94b54ea24.
+//
+// Solidity: event IssuerAuthorized(address indexed issuer)
+func (_Certifyer *CertifyerFilterer) ParseIssuerAuthorized(log types.Log) (*CertifyerIssuerAuthorized, error) {
+	event := new(CertifyerIssuerAuthorized)
+	if err := _Certifyer.contract.UnpackLog(event, "IssuerAuthorized", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

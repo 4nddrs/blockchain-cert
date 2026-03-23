@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -38,9 +39,6 @@ func main() {
 	if url == "" {
 		log.Fatal("Error: Cant found ALCHEMY_URL in .env file")
 	}
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
 
 	// Connect to Alchemy
 	client, err := ethclient.Dial(os.Getenv("ALCHEMY_URL"))
@@ -60,7 +58,12 @@ func main() {
 	// Action based on command line argument
 	switch action {
 	case "register":
-		registerCertificate(client, common.HexToAddress(os.Getenv("CONTRACT_ADDRESS")), hash)
+
+		// Validate arguments
+		if len(os.Args) < 6 {
+			fmt.Println("Usage: go run main.go register <file.pdf> <studentName> <CourseName> <IssuerName>")
+		}
+		registerCertificate(client, common.HexToAddress(os.Getenv("CONTRACT_ADDRESS")), hash, os.Args[3], os.Args[4], os.Args[5])
 	case "verify":
 		verifyCertificate(client, common.HexToAddress(os.Getenv("CONTRACT_ADDRESS")), hash)
 	default:
@@ -78,7 +81,7 @@ func generateHash(filePath string) (string, error) {
 	return hash, nil
 }
 
-func registerCertificate(client *ethclient.Client, contractAddress common.Address, fileHash string) {
+func registerCertificate(client *ethclient.Client, contractAddress common.Address, fileHash string, studentName string, courseName string, issuerName string) {
 	privateKey, err := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
 	if err != nil {
 		log.Fatalf("Invalid PRIVATE_KEY: %v", err)
@@ -103,12 +106,17 @@ func registerCertificate(client *ethclient.Client, contractAddress common.Addres
 	var dataHash [32]byte
 	copy(dataHash[:], common.FromHex(fileHash))
 
-	tx, err := instance.RegisterCertificate(auth, dataHash)
+	tx, err := instance.RegisterCertificate(auth, dataHash, studentName, courseName, issuerName)
 	if err != nil {
 		log.Fatalf("Failed to register hash: %v", err)
 	}
 
-	fmt.Printf("Hash registered successfully! Transaction Hash: %s\n", tx.Hash().Hex())
+	fmt.Printf("Hash registered successfully!")
+	fmt.Printf("Transaction Hash: %s\n", tx.Hash().Hex())
+	fmt.Printf("Certificate Details:\n")
+	fmt.Printf("Name:%s\n", studentName)
+	fmt.Printf("Course:%s\n", courseName)
+	fmt.Printf("Issuer:%s\n", issuerName)
 
 }
 
@@ -124,14 +132,22 @@ func verifyCertificate(client *ethclient.Client, contractAddress common.Address,
 	copy(hash[:], hashBytes)
 
 	// Free call to check if the hash is registered
-	isValid, err := instance.Certificates(nil, hash)
+	cert, err := instance.Certificates(nil, hash)
 	if err != nil {
 		log.Fatalf("Failed to verify hash: %v", err)
 	}
 
 	fmt.Println("\n---Verification Result---")
-	if isValid {
-		fmt.Printf("The certificate with hash %s is valid and registered on the blockchain.\n", fileHash)
+	if cert.IsValid {
+
+		emittedTime := time.Unix(cert.DateEmited.Int64(), 0)
+
+		fmt.Printf("Estate: Valid\n")
+		fmt.Printf("Name: %s\n", cert.StudentName)
+		fmt.Printf("Course: %s\n", cert.CourseName)
+		fmt.Printf("Issuer: %s\n", cert.IssuerName)
+		fmt.Printf("Date Emitted: %s\n", emittedTime.Format("02 Jan 2006 15:04:05"))
+		fmt.Printf("The certificate with hash %s is registered on the blockchain.\n", fileHash)
 	} else {
 		fmt.Printf("The certificate with hash %s is NOT registered on the blockchain.\n", fileHash)
 	}
