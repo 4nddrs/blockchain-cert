@@ -67,26 +67,33 @@ This system creates an **immutable, decentralized registry** of document authent
 ```
 Step 1: Local Processing (Offline & Private)
 ┌────────────┐
-│ PDF/File   │──▶ SHA-256 Hash ──▶ 0xabcd1234... (32 bytes)
+│ PDF/File   │──▶ Keccak256 Hash ──▶ 0xabcd1234... (32 bytes)
 └────────────┘
 
-Step 2: Digital Signature (ECDSA)
+Step 2: Metadata Preparation
+┌──────────────────────┐
+│ Student Name         │──▶ Certificate Metadata
+│ Course Name          │
+│ Issuer Name          │
+└──────────────────────┘
+
+Step 3: Digital Signature (ECDSA)
 ┌──────────────┐
 │ Private Key  │──▶ Sign Transaction ──▶ Authorized Transaction
 └──────────────┘
 
-Step 3: Blockchain Submission
+Step 4: Blockchain Submission
 ┌────────────────┐
 │ Go CLI         │──▶ Alchemy (RPC) ──▶ Polygon Network
 └────────────────┘
 
-Step 4: Immutable Storage
+Step 5: Immutable Storage
 ┌─────────────────┐
-│ Smart Contract  │──▶ mapping(hash => true) ──▶ Event Emitted
+│ Smart Contract  │──▶ mapping(hash => Certificate) ──▶ Event Emitted
 └─────────────────┘
 
-Step 5: Public Verification
-Anyone can query: validateCertificate(hash) ──▶ true/false
+Step 6: Public Verification
+Anyone can query: certificates[hash] ──▶ {isValid, studentName, courseName, issuerName, dateEmitted}
 ```
 
 ---
@@ -286,22 +293,35 @@ The CLI now supports two main operations: **registering** and **verifying** cert
 
 ### Register a Certificate
 
+The system now supports **metadata storage** alongside document hashes. When registering a certificate, you can associate it with student information, course details, and issuer data.
+
 ```bash
 cd cmd/cli
 
-# Register a document certificate on the blockchain
-go run main.go register <file_path>
+# Register a document certificate with metadata on the blockchain
+go run main.go register <file_path> <studentName> <courseName> <issuerName>
 
 # Example
-go run main.go register title.pdf
+go run main.go register titleMeta2.pdf "Andres Menchaca" "Systems" "4nddrs Academy"
 ```
+
+**Parameters:**
+- `<file_path>`: Path to the PDF or document file
+- `<studentName>`: Full name of the certificate recipient
+- `<courseName>`: Name of the course or certification program
+- `<issuerName>`: Organization or entity issuing the certificate
 
 **Expected Output:**
 
 ```
 Success connecting to Alchemy
 Generated Hash: 0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
-Hash registered successfully! Transaction Hash: 0x123456789...
+Hash registered successfully!
+Transaction Hash: 0x123456789...
+Certificate Details:
+Name:Andres Menchaca
+Course:Systems
+Issuer:4nddrs Academy
 ```
 
 ### Verify a Certificate
@@ -323,7 +343,12 @@ Success connecting to Alchemy
 Generated Hash: 0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
 
 ---Verification Result---
-The certificate with hash 0xabcd1234... is valid and registered on the blockchain.
+Estate: Valid
+Name: Andres Menchaca
+Course: Systems
+Issuer: 4nddrs Academy
+Date Emitted: 23 Mar 2026 14:30:45
+The certificate with hash 0xabcd1234... is registered on the blockchain.
 -------------------------
 ```
 
@@ -507,32 +532,61 @@ func generateHash(filePath string) (string, error) {
 ### Smart Contract Logic
 
 ```solidity
+// Certificate structure with metadata
+struct Certificate {
+    bool isValid;
+    string studentName;
+    string courseName;
+    string issuerName;
+    uint256 dateEmited;
+}
+
 // Admin-controlled registry
 address public admin;
-mapping(bytes32 => bool) public certificates;
+mapping(bytes32 => Certificate) public certificates;
 
-// Only admin can certify
-function registerCertificate(bytes32 datahash) public {
+// Only admin can certify with metadata
+function registerCertificate(
+    bytes32 datahash,
+    string memory _studentName,
+    string memory _courseName,
+    string memory _issuerName
+) public {
     require(msg.sender == admin, "Only the admin can certify documents");
-    certificates[datahash] = true;
+    certificates[datahash] = Certificate({
+        isValid: true,
+        studentName: _studentName,
+        courseName: _courseName,
+        issuerName: _issuerName,
+        dateEmited: block.timestamp
+    });
     emit CertificateCreated(datahash, block.timestamp);
 }
 
 // Public mapping for verification (anyone can check)
-mapping(bytes32 => bool) public certificates;
+mapping(bytes32 => Certificate) public certificates;
 ```
 
 **Key Design Decisions:**
 
-1. **Mapping over array**: O(1) lookup time
-2. **Events for indexing**: Off-chain services can listen for new certificates
-3. **Public mapping**: Verification costs no gas (automatic getter)
-4. **No deletion**: Immutable by design
+1. **Struct-based storage**: Stores certificate metadata on-chain
+2. **Mapping over array**: O(1) lookup time
+3. **Events for indexing**: Off-chain services can listen for new certificates
+4. **Public mapping**: Verification costs no gas (automatic getter)
+5. **Timestamp recording**: Automatic date tracking via `block.timestamp`
+6. **No deletion**: Immutable by design
 
 ### Certificate Registration Flow
 
 ```go
-func registerCertificate(client *ethclient.Client, contractAddress common.Address, fileHash string) {
+func registerCertificate(
+    client *ethclient.Client,
+    contractAddress common.Address,
+    fileHash string,
+    studentName string,
+    courseName string,
+    issuerName string,
+) {
     // 1. Load private key and create authorized signer
     privateKey, _ := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
     chainID, _ := client.NetworkID(context.Background())
@@ -545,9 +599,13 @@ func registerCertificate(client *ethclient.Client, contractAddress common.Addres
     var dataHash [32]byte
     copy(dataHash[:], common.FromHex(fileHash))
     
-    // 4. Submit transaction
-    tx, _ := instance.RegisterCertificate(auth, dataHash)
+    // 4. Submit transaction with metadata
+    tx, _ := instance.RegisterCertificate(auth, dataHash, studentName, courseName, issuerName)
     fmt.Printf("Transaction Hash: %s\n", tx.Hash().Hex())
+    fmt.Printf("Certificate Details:\n")
+    fmt.Printf("Name:%s\n", studentName)
+    fmt.Printf("Course:%s\n", courseName)
+    fmt.Printf("Issuer:%s\n", issuerName)
 }
 ```
 
@@ -564,10 +622,16 @@ func verifyCertificate(client *ethclient.Client, contractAddress common.Address,
     copy(hash[:], hashBytes)
     
     // 3. Free call to check registration (no gas cost)
-    isValid, _ := instance.Certificates(nil, hash)
+    cert, _ := instance.Certificates(nil, hash)
     
-    // 4. Display result
-    if isValid {
+    // 4. Display result with metadata
+    if cert.IsValid {
+        emittedTime := time.Unix(cert.DateEmited.Int64(), 0)
+        fmt.Printf("Estate: Valid\n")
+        fmt.Printf("Name: %s\n", cert.StudentName)
+        fmt.Printf("Course: %s\n", cert.CourseName)
+        fmt.Printf("Issuer: %s\n", cert.IssuerName)
+        fmt.Printf("Date Emitted: %s\n", emittedTime.Format("02 Jan 2006 15:04:05"))
         fmt.Println("Certificate is valid and registered")
     } else {
         fmt.Println("Certificate is NOT registered")
@@ -601,12 +665,21 @@ This proves **you** authorized the transaction (non-repudiation).
 
 #### "Usage: go run main.go <file_path>"
 
-**Old error**: You forgot to specify the action.
+**Error**: You forgot to specify the action or missing required parameters.
 
-**New usage**:
+**Correct usage**:
 ```bash
-go run main.go register <file_path>  # To register
-go run main.go verify <file_path>    # To verify
+# To register (requires metadata)
+go run main.go register <file_path> <studentName> <courseName> <issuerName>
+
+# To verify
+go run main.go verify <file_path>
+```
+
+**Example**:
+```bash
+go run main.go register title.pdf "John Doe" "Blockchain Development" "Tech University"
+go run main.go verify title.pdf
 ```
 
 #### "Error: Cant found ALCHEMY_URL in .env file"
