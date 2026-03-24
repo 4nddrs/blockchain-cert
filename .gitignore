@@ -48,6 +48,10 @@ temp/
 # Uncomment if you don't want to track test files:
 # cmd/cli/*.pdf
 
+# PDF directories
+cmd/cli/pdfs/
+cmd/api/temp_/
+
 # Contract artifacts (if using Hardhat or Foundry)
 artifacts/
 cache/

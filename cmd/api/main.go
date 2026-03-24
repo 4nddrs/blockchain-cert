@@ -1,155 +1,117 @@
 package main
 
 // export GOTMPDIR=~/go-cache/tmp
+
 import (
-	"context"
-	"encoding/hex"
-	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 
 	"github.com/4nddrs/blockchain-cert/internal/blockchain"
-	"github.com/joho/godotenv"
 )
 
-func main() {
+var client *ethclient.Client
 
-	// Check command line arguments
-	if len(os.Args) < 3 {
-		fmt.Println("Usage: go run main.go <file_path>")
+func main() {
+	// 1. Load environment variables
+	godotenv.Load("../../.env")
+
+	var err error
+	client, err = ethclient.Dial(os.Getenv("ALCHEMY_URL"))
+
+	if err != nil {
+		log.Fatalf("Failed to connect to Ethereum client: %v", err)
+	}
+
+	// 2. Config Server
+	r := gin.Default()
+
+	// CORS Config
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"POST", "GET", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
+	// API routes
+	v1 := r.Group("/api/v1")
+	{
+		v1.POST("/register", handleRegister)
+		v1.POST("/verify", handleVerify)
+
+	}
+
+	log.Println("Server running on http://localhost:8080")
+	r.Run(":8080")
+}
+
+func handleRegister(c *gin.Context) {
+	// Input data structure
+	file, _ := c.FormFile("pdf")
+	studentName := c.PostForm("student_name")
+	courseName := c.PostForm("course_name")
+	issuer := c.PostForm("issuer")
+
+	// Save temporary file to hash
+	tempFilePath := "./temp_/" + file.Filename
+	if err := c.SaveUploadedFile(file, tempFilePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return
 	}
-	action := os.Args[1]
-	pdfPath := os.Args[2]
 
-	// Load environment variables from .env file
-	err := godotenv.Load("../../.env")
+	defer os.Remove(tempFilePath)
 
+	// Blockchain interaction
+
+	hash, _ := blockchain.GenerateHash(tempFilePath)
+	contractAddress := common.HexToAddress(os.Getenv("CONTRACT_ADDRESS"))
+	privateKey := os.Getenv("PRIVATE_KEY")
+
+	txHash, err := blockchain.RegisterCertificate(client, privateKey, contractAddress, hash, studentName, courseName, issuer)
 	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to register certificate"})
+		return
 	}
 
-	url := os.Getenv("ALCHEMY_URL")
-	if url == "" {
-		log.Fatal("Error: Cant found ALCHEMY_URL in .env file")
-	}
-
-	// Connect to Alchemy
-	client, err := ethclient.Dial(os.Getenv("ALCHEMY_URL"))
-	if err != nil {
-		log.Fatalf("Cant Connect to Alchemy: %v", err)
-	}
-	fmt.Println("Success connecting to Alchemy")
-
-	// Generate hash of the PDF file
-	hash, err := generateHash(pdfPath)
-	if err != nil {
-		log.Fatalf("Error generating hash: %v", err)
-	}
-
-	fmt.Printf("Generated Hash: %s\n", hash)
-
-	// Action based on command line argument
-	switch action {
-	case "register":
-
-		// Validate arguments
-		if len(os.Args) < 6 {
-			fmt.Println("Usage: go run main.go register <file.pdf> <studentName> <CourseName> <IssuerName>")
-		}
-		registerCertificate(client, common.HexToAddress(os.Getenv("CONTRACT_ADDRESS")), hash, os.Args[3], os.Args[4], os.Args[5])
-	case "verify":
-		verifyCertificate(client, common.HexToAddress(os.Getenv("CONTRACT_ADDRESS")), hash)
-	default:
-		fmt.Println("Unknown action. Use 'register' to register the certificate or 'verify' to verify it.")
-	}
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"hash":    hash,
+		"tx_hash": txHash,
+	})
 }
 
-func generateHash(filePath string) (string, error) {
-	file, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	hash := crypto.Keccak256Hash(file).Hex()
+func handleVerify(c *gin.Context) {
+	file, _ := c.FormFile("pdf")
 
-	return hash, nil
-}
+	tempPath := "./verify_" + file.Filename
+	c.SaveUploadedFile(file, tempPath)
+	defer os.Remove(tempPath)
 
-func registerCertificate(client *ethclient.Client, contractAddress common.Address, fileHash string, studentName string, courseName string, issuerName string) {
-	privateKey, err := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
-	if err != nil {
-		log.Fatalf("Invalid PRIVATE_KEY: %v", err)
-	}
-	chainID, err := client.NetworkID(context.Background())
-	if err != nil {
-		log.Fatalf("Failed to get network ID: %v", err)
-	}
-	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
-	if err != nil {
-		log.Fatalf("Failed to create transactor: %v", err)
+	hash, _ := blockchain.GenerateHash(tempPath)
+	contractAddress := common.HexToAddress(os.Getenv("CONTRACT_ADDRESS"))
+
+	cert, err := blockchain.VerifyCertificate(client, contractAddress, hash)
+
+	if err != nil || !cert.IsValid {
+		c.JSON(http.StatusNotFound, gin.H{"status": "not_found", "message": "Certificate not found or invalid"})
+		return
 	}
 
-	// Instantiate the smart contract
-	instance, err := blockchain.NewCertifyer(contractAddress, client)
-	if err != nil {
-		log.Fatalf("Failed to instantiate contract: %v", err)
-	}
-
-	// Register the Hash
-	// Convert the hash to bytes32
-	var dataHash [32]byte
-	copy(dataHash[:], common.FromHex(fileHash))
-
-	tx, err := instance.RegisterCertificate(auth, dataHash, studentName, courseName, issuerName)
-	if err != nil {
-		log.Fatalf("Failed to register hash: %v", err)
-	}
-
-	fmt.Printf("Hash registered successfully!")
-	fmt.Printf("Transaction Hash: %s\n", tx.Hash().Hex())
-	fmt.Printf("Certificate Details:\n")
-	fmt.Printf("Name:%s\n", studentName)
-	fmt.Printf("Course:%s\n", courseName)
-	fmt.Printf("Issuer:%s\n", issuerName)
-
-}
-
-func verifyCertificate(client *ethclient.Client, contractAddress common.Address, fileHash string) {
-	instance, err := blockchain.NewCertifyer(contractAddress, client)
-
-	if err != nil {
-		log.Fatalf("Failed to instantiate contract: %v", err)
-	}
-
-	var hash [32]byte
-	hashBytes, _ := hex.DecodeString(fileHash[2:]) // Remove "0x" prefix
-	copy(hash[:], hashBytes)
-
-	// Free call to check if the hash is registered
-	cert, err := instance.Certificates(nil, hash)
-	if err != nil {
-		log.Fatalf("Failed to verify hash: %v", err)
-	}
-
-	fmt.Println("\n---Verification Result---")
-	if cert.IsValid {
-
-		emittedTime := time.Unix(cert.DateEmited.Int64(), 0)
-
-		fmt.Printf("Estate: Valid\n")
-		fmt.Printf("Name: %s\n", cert.StudentName)
-		fmt.Printf("Course: %s\n", cert.CourseName)
-		fmt.Printf("Issuer: %s\n", cert.IssuerName)
-		fmt.Printf("Date Emitted: %s\n", emittedTime.Format("02 Jan 2006 15:04:05"))
-		fmt.Printf("The certificate with hash %s is registered on the blockchain.\n", fileHash)
-	} else {
-		fmt.Printf("The certificate with hash %s is NOT registered on the blockchain.\n", fileHash)
-	}
-	fmt.Println("-------------------------")
+	c.JSON(http.StatusOK, gin.H{
+		"status":       "valid",
+		"student_name": cert.StudentName,
+		"course_name":  cert.CourseName,
+		"issuer":       cert.IssuerName,
+		"date":         cert.DateEmited.Format("2006-01-02 15:04:05"),
+	})
 }

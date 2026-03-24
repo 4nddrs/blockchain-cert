@@ -16,7 +16,7 @@ This system creates an **immutable, decentralized registry** of document authent
 - **Decentralization**: No single point of failure or control
 - **Privacy**: The actual documents remain with their owners
 - **Public Verifiability**: Anyone can verify a document's authenticity
-- **Cryptographic Security**: SHA-256 hashing ensures document integrity
+- **Cryptographic Security**: Keccak256 hashing ensures document integrity
 - **Cost Efficiency**: Only hashes are stored on-chain, minimizing gas costs
 
 ### Real-World Applications
@@ -34,18 +34,18 @@ This system creates an **immutable, decentralized registry** of document authent
 ### System Components
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         USER INTERACTION                        │
-│                    (CLI - Command Line Interface)               │
-└────────────────────────┬────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                      USER INTERACTION                             │
+│           CLI (Command Line)  |  REST API (HTTP)                  │
+└────────────────────────┬──────────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      APPLICATION LAYER (Go)                     |
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐     │
-│  │ Crypto Layer │  │   Ethereum   │  │   Smart Contract   │     │
-│  │  (Hashing)   │  │    Client    │  │    Bindings (ABI)  │     │
-│  └──────────────┘  └──────────────┘  └────────────────────┘     │
+│                   APPLICATION LAYER (Go)                        │
+│  ┌────────────────┐  ┌──────────────┐  ┌────────────────────┐   │
+│  │  Logic Layer   │  │   Ethereum   │  │   Smart Contract   │   │
+│  │  (logic.go)    │  │    Client    │  │    Bindings (ABI)  │   │
+│  └────────────────┘  └──────────────┘  └────────────────────┘   │
 └────────────────────────┬────────────────────────────────────────┘
                          │
                          ▼
@@ -84,7 +84,7 @@ Step 3: Digital Signature (ECDSA)
 
 Step 4: Blockchain Submission
 ┌────────────────┐
-│ Go CLI         │──▶ Alchemy (RPC) ──▶ Polygon Network
+│ CLI / API      │──▶ Alchemy (RPC) ──▶ Polygon Network
 └────────────────┘
 
 Step 5: Immutable Storage
@@ -102,13 +102,15 @@ Anyone can query: certificates[hash] ──▶ {isValid, studentName, courseName
 
 | Layer                      | Technology           | Purpose                                 |
 | -------------------------- | -------------------- | --------------------------------------- |
-| **Language**               | Go 1.25+             | High-performance CLI application        |
+| **Language**               | Go 1.25+             | High-performance application            |
 | **Smart Contract**         | Solidity 0.8.19      | On-chain certificate registry           |
 | **Blockchain**             | Polygon Amoy Testnet | Ethereum-compatible network             |
 | **Node Provider**          | Alchemy              | RPC gateway to blockchain               |
 | **Development Framework**  | Foundry (Forge/Cast) | Smart contract compilation & deployment |
 | **Blockchain Client**      | go-ethereum v1.17.1  | Ethereum interaction library            |
-| **Cryptography**           | SHA-256/Keccak256    | Document hashing                        |
+| **API Framework**          | Gin v1.12.0          | HTTP REST API server                    |
+| **CORS Middleware**        | gin-contrib/cors     | Cross-origin resource sharing           |
+| **Cryptography**           | Keccak256            | Document hashing                        |
 | **Environment Management** | godotenv             | Secure configuration                    |
 | **JSON Processing**        | jq                   | ABI extraction                          |
 | **Code Generation**        | abigen               | Go bindings from Solidity ABI           |
@@ -120,29 +122,37 @@ Anyone can query: certificates[hash] ──▶ {isValid, studentName, courseName
 ```
 blockchain-cert/
 ├── cmd/
-│   └── cli/
-│       ├── main.go           # CLI entry point with clean code architecture
-│       └── title.pdf          # Example test file
+│   ├── cli/
+│   │   ├── main.go           # CLI entry point
+│   │   └── pdfs/             # Test PDFs directory (gitignored)
+│   └── api/
+│       ├── main.go           # REST API server
+│       └── temp_/            # Temporary upload directory
 ├── internal/
 │   ├── blockchain/
-│   │   └── certifyer.go       # Auto-generated contract bindings
+│   │   ├── logic.go          # Core business logic (register/verify)
+│   │   ├── certifyer.go      # Auto-generated contract bindings
+│   │   └── client.go         # Ethereum client connection (deprecated)
+│   └── crypto/
+│       └── hash.go           # SHA256 file hashing (deprecated)
 ├── contracts/
-│   └── Certifyer.sol          # Solidity smart contract
-├── out/                       # Foundry build artifacts (auto-generated)
+│   └── Certifyer.sol         # Solidity smart contract
+├── out/                      # Foundry build artifacts (auto-generated)
 │   └── Certifyer.sol/
-│       └── Certifyer.json     # Compiled contract ABI + bytecode
-├── .env                       # Environment variables (NOT committed)
+│       └── Certifyer.json    # Compiled contract ABI + bytecode
+├── .env                      # Environment variables (NOT committed)
 ├── .gitignore
-├── go.mod                     # Go module definition
-├── go.sum                     # Go dependencies lockfile
-├── AGENTS.md                  # Developer documentation
-└── README.md                  # This file
+├── go.mod                    # Go module definition
+├── go.sum                    # Go dependencies lockfile
+├── AGENTS.md                 # Developer documentation
+└── README.md                 # This file
 ```
 
 ### Key Directories
 
 - **`cmd/cli/`**: Command-line interface executable with register and verify functionality
-- **`internal/blockchain/`**: Smart contract bindings for Ethereum interaction
+- **`cmd/api/`**: REST API server for web applications
+- **`internal/blockchain/`**: Core business logic and smart contract bindings
 - **`contracts/`**: Solidity smart contracts source code
 - **`out/`**: Foundry compilation artifacts
 
@@ -289,11 +299,11 @@ abigen --abi out/Certifyer.abi \
 
 ## 🎮 Usage
 
-The CLI now supports two main operations: **registering** and **verifying** certificates.
+The system provides **two interfaces**: a CLI for terminal usage and a REST API for web applications.
+
+## CLI Usage
 
 ### Register a Certificate
-
-The system now supports **metadata storage** alongside document hashes. When registering a certificate, you can associate it with student information, course details, and issuer data.
 
 ```bash
 cd cmd/cli
@@ -302,10 +312,11 @@ cd cmd/cli
 go run main.go register <file_path> <studentName> <courseName> <issuerName>
 
 # Example
-go run main.go register titleMeta2.pdf "Andres Menchaca" "Systems" "4nddrs Academy"
+go run main.go register document.pdf "Andres Menchaca" "Blockchain Development" "Tech Academy"
 ```
 
 **Parameters:**
+
 - `<file_path>`: Path to the PDF or document file
 - `<studentName>`: Full name of the certificate recipient
 - `<courseName>`: Name of the course or certification program
@@ -316,12 +327,10 @@ go run main.go register titleMeta2.pdf "Andres Menchaca" "Systems" "4nddrs Acade
 ```
 Success connecting to Alchemy
 Generated Hash: 0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
-Hash registered successfully!
-Transaction Hash: 0x123456789...
-Certificate Details:
-Name:Andres Menchaca
-Course:Systems
-Issuer:4nddrs Academy
+Certificate registered successfully! Transaction Hash: 0x123456789...
+Name: Andres Menchaca
+Course: Blockchain Development
+Issuer: Tech Academy
 ```
 
 ### Verify a Certificate
@@ -333,7 +342,7 @@ cd cmd/cli
 go run main.go verify <file_path>
 
 # Example
-go run main.go verify title.pdf
+go run main.go verify document.pdf
 ```
 
 **Expected Output (if registered):**
@@ -341,15 +350,12 @@ go run main.go verify title.pdf
 ```
 Success connecting to Alchemy
 Generated Hash: 0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
-
----Verification Result---
-Estate: Valid
-Name: Andres Menchaca
-Course: Systems
-Issuer: 4nddrs Academy
-Date Emitted: 23 Mar 2026 14:30:45
-The certificate with hash 0xabcd1234... is registered on the blockchain.
--------------------------
+Certificate Details:
+Status: Valid
+Student Name: Andres Menchaca
+Course Name: Blockchain Development
+Issuer Name: Tech Academy
+Registration Date: 2026-03-24 14:30:45
 ```
 
 **Expected Output (if NOT registered):**
@@ -357,11 +363,126 @@ The certificate with hash 0xabcd1234... is registered on the blockchain.
 ```
 Success connecting to Alchemy
 Generated Hash: 0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
-
----Verification Result---
-The certificate with hash 0xabcd1234... is NOT registered on the blockchain.
--------------------------
+Certificate Details:
+Status: Invalid
 ```
+
+---
+
+## 🌐 REST API Usage
+
+### Start the API Server
+
+```bash
+cd cmd/api
+go run main.go
+
+# Server will start on http://localhost:8080
+```
+
+### API Endpoints
+
+#### 1. Register Certificate
+
+**Endpoint**: `POST /api/v1/register`
+
+**Content-Type**: `multipart/form-data`
+
+**Parameters**:
+
+- `pdf` (file): PDF document to certify
+- `student_name` (string): Student's full name
+- `course_name` (string): Course name
+- `issuer` (string): Issuing organization
+
+**Example with cURL**:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/register \
+  -F "pdf=@certificate.pdf" \
+  -F "student_name=Andres Menchaca" \
+  -F "course_name=Blockchain Development" \
+  -F "issuer=Tech Academy"
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "status": "success",
+  "hash": "0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
+  "tx_hash": "0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba"
+}
+```
+
+**Error Response** (400 Bad Request):
+
+```json
+{
+  "error": "Failed to register certificate"
+}
+```
+
+---
+
+#### 2. Verify Certificate
+
+**Endpoint**: `POST /api/v1/verify`
+
+**Content-Type**: `multipart/form-data`
+
+**Parameters**:
+
+- `pdf` (file): PDF document to verify
+
+**Example with cURL**:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/verify \
+  -F "pdf=@certificate.pdf"
+```
+
+**Success Response (Valid Certificate)** (200 OK):
+
+```json
+{
+  "status": "valid",
+  "student_name": "Andres Menchaca",
+  "course_name": "Blockchain Development",
+  "issuer": "Tech Academy",
+  "date": "2026-03-24 14:30:45"
+}
+```
+
+**Not Found Response** (404 Not Found):
+
+```json
+{
+  "status": "not_found",
+  "message": "Certificate not found or invalid"
+}
+```
+
+---
+
+### CORS Configuration
+
+The API is configured with CORS to accept requests from `http://localhost:3000` (typical React/Vue development server).
+
+To modify allowed origins, edit `cmd/api/main.go`:
+
+```go
+r.Use(cors.New(cors.Config{
+    AllowOrigins:     []string{"http://localhost:3000", "https://yourdomain.com"},
+    AllowMethods:     []string{"POST", "GET", "OPTIONS"},
+    AllowHeaders:     []string{"Origin", "Content-Type"},
+    ExposeHeaders:    []string{"Content-Length"},
+    AllowCredentials: true,
+    MaxAge:           12 * time.Hour,
+}))
+```
+
+---
 
 ### Verify Transaction on Blockchain Explorer
 
@@ -370,15 +491,55 @@ The certificate with hash 0xabcd1234... is NOT registered on the blockchain.
 3. Paste the transaction hash
 4. View the `CertificateCreated` event
 
-### Query Contract State via CLI
+---
 
-```bash
-# Alternative: Check if a hash is certified using Foundry
-cast call $CONTRACT_ADDRESS \
-  "certificates(bytes32)(bool)" \
-  0xYOUR_HASH_HERE \
-  --rpc-url $ALCHEMY_URL
+## 🏛️ Clean Code Architecture
+
+The project follows clean code principles with clear separation of concerns:
+
+### Core Business Logic (`internal/blockchain/logic.go`)
+
+All certificate-related operations are centralized in a single file:
+
+```go
+// GenerateHash - Creates Keccak256 hash of any file
+func GenerateHash(filePath string) (string, error)
+
+// RegisterCertificate - Submits certificate to blockchain with metadata
+func RegisterCertificate(
+    client *ethclient.Client,
+    privateKeyHex string,
+    contractAddress common.Address,
+    fileHash string,
+    studentName string,
+    courseName string,
+    issuerName string,
+) (string, error)
+
+// VerifyCertificate - Queries blockchain for certificate data
+func VerifyCertificate(
+    client *ethclient.Client,
+    contractAddress common.Address,
+    fileHash string,
+) (*CertificateData, error)
 ```
+
+### Benefits of Current Architecture
+
+✅ **Single Responsibility**: Each function has one clear purpose  
+✅ **DRY Principle**: Logic shared between CLI and API  
+✅ **Testability**: Pure functions can be unit tested independently  
+✅ **Maintainability**: Changes to business logic happen in one place  
+✅ **Scalability**: Easy to add new interfaces (WebSocket, gRPC, etc.)
+
+### Interface Layer
+
+Both CLI and API are thin wrappers around `logic.go`:
+
+- **CLI** (`cmd/cli/main.go`): Parses arguments, calls logic, formats output
+- **API** (`cmd/api/main.go`): Handles HTTP, file uploads, calls logic, returns JSON
+
+This makes it trivial to add new interfaces without duplicating business logic.
 
 ---
 
@@ -391,15 +552,18 @@ cast call $CONTRACT_ADDRESS \
 - Private keys stored in `.env` (not hardcoded)
 - Admin-only certificate registration (access control)
 - Immutable records (cannot be deleted or modified)
-- Cryptographic hashing (SHA-256/Keccak256)
+- Cryptographic hashing (Keccak256)
+- CORS protection in API
+- Temporary file cleanup after processing
 
 ⚠️ **Areas for Improvement:**
 
 - No private key encryption at rest
 - Single admin point of failure
-- No rate limiting on RPC calls
-- No input validation on file paths
+- No rate limiting on RPC calls or API endpoints
+- No input validation on file sizes/types
 - API keys visible in plain text `.env`
+- No authentication on API endpoints
 
 ### Best Practices
 
@@ -410,6 +574,9 @@ cast call $CONTRACT_ADDRESS \
 5. **Use secret management services (AWS Secrets Manager, HashiCorp Vault)**
 6. **Monitor Alchemy API rate limits**
 7. **Implement audit logging for all certifications**
+8. **Add API authentication (JWT, API keys)**
+9. **Implement file size limits and MIME type validation**
+10. **Add rate limiting to prevent abuse**
 
 ---
 
@@ -419,14 +586,22 @@ cast call $CONTRACT_ADDRESS \
 
 ```bash
 # 1. Make changes to Go code
-vim cmd/cli/main.go
+vim internal/blockchain/logic.go
 
-# 2. Test registration locally
+# 2. Test via CLI
 cd cmd/cli
-go run main.go register test_file.pdf
+go run main.go register test.pdf "Test Student" "Test Course" "Test Issuer"
+go run main.go verify test.pdf
 
-# 3. Verify the certificate
-go run main.go verify test_file.pdf
+# 3. Test via API
+cd cmd/api
+go run main.go
+# In another terminal:
+curl -X POST http://localhost:8080/api/v1/register \
+  -F "pdf=@test.pdf" \
+  -F "student_name=Test" \
+  -F "course_name=Test" \
+  -F "issuer=Test"
 
 # 4. Check transaction on blockchain explorer
 # Visit https://amoy.polygonscan.com/ with transaction hash
@@ -456,50 +631,10 @@ abigen --abi out/Certifyer.abi \
        --type Certifyer \
        --out internal/blockchain/certifyer.go
 
-# 6. Rebuild Go app
-cd cmd/cli
-go build
+# 6. Rebuild applications
+cd cmd/cli && go build
+cd cmd/api && go build
 ```
-
----
-
-## 🏛️ Clean Code Architecture
-
-The CLI has been refactored following clean code principles:
-
-### Separation of Concerns
-
-The main file is now organized into **focused functions** with single responsibilities:
-
-- **`main()`**: Orchestrates flow, parses arguments, delegates to specialized functions
-- **`generateHash()`**: Pure function for file hashing
-- **`registerCertificate()`**: Handles blockchain registration logic
-- **`verifyCertificate()`**: Handles blockchain verification logic
-
-### Benefits of Current Architecture
-
-✅ **Modularity**: Each function does one thing well  
-✅ **Testability**: Functions can be unit tested independently  
-✅ **Readability**: Clear function names describe intent  
-✅ **Maintainability**: Easy to modify or extend functionality  
-✅ **Error Handling**: Consistent error propagation pattern  
-
-### Command Pattern
-
-The CLI uses a simple command pattern:
-
-```go
-switch action {
-case "register":
-    registerCertificate(client, contractAddress, hash)
-case "verify":
-    verifyCertificate(client, contractAddress, hash)
-default:
-    fmt.Println("Unknown action. Use 'register' or 'verify'.")
-}
-```
-
-This makes it easy to add new commands in the future (e.g., `batch`, `revoke`, `list`).
 
 ---
 
@@ -507,11 +642,9 @@ This makes it easy to add new commands in the future (e.g., `batch`, `revoke`, `
 
 ### How Hashing Works
 
-The system uses a clean, modular approach to file hashing:
-
 ```go
-// generateHash creates a Keccak256 hash of any file
-func generateHash(filePath string) (string, error) {
+// GenerateHash creates a Keccak256 hash of any file
+func GenerateHash(filePath string) (string, error) {
     file, err := os.ReadFile(filePath)
     if err != nil {
         return "", err
@@ -562,9 +695,6 @@ function registerCertificate(
     });
     emit CertificateCreated(datahash, block.timestamp);
 }
-
-// Public mapping for verification (anyone can check)
-mapping(bytes32 => Certificate) public certificates;
 ```
 
 **Key Design Decisions:**
@@ -576,87 +706,6 @@ mapping(bytes32 => Certificate) public certificates;
 5. **Timestamp recording**: Automatic date tracking via `block.timestamp`
 6. **No deletion**: Immutable by design
 
-### Certificate Registration Flow
-
-```go
-func registerCertificate(
-    client *ethclient.Client,
-    contractAddress common.Address,
-    fileHash string,
-    studentName string,
-    courseName string,
-    issuerName string,
-) {
-    // 1. Load private key and create authorized signer
-    privateKey, _ := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
-    chainID, _ := client.NetworkID(context.Background())
-    auth, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
-    
-    // 2. Instantiate smart contract
-    instance, _ := blockchain.NewCertifyer(contractAddress, client)
-    
-    // 3. Convert hash to bytes32
-    var dataHash [32]byte
-    copy(dataHash[:], common.FromHex(fileHash))
-    
-    // 4. Submit transaction with metadata
-    tx, _ := instance.RegisterCertificate(auth, dataHash, studentName, courseName, issuerName)
-    fmt.Printf("Transaction Hash: %s\n", tx.Hash().Hex())
-    fmt.Printf("Certificate Details:\n")
-    fmt.Printf("Name:%s\n", studentName)
-    fmt.Printf("Course:%s\n", courseName)
-    fmt.Printf("Issuer:%s\n", issuerName)
-}
-```
-
-### Certificate Verification Flow
-
-```go
-func verifyCertificate(client *ethclient.Client, contractAddress common.Address, fileHash string) {
-    // 1. Instantiate smart contract (no auth needed for read-only)
-    instance, _ := blockchain.NewCertifyer(contractAddress, client)
-    
-    // 2. Convert hash to bytes32
-    var hash [32]byte
-    hashBytes, _ := hex.DecodeString(fileHash[2:]) // Remove "0x" prefix
-    copy(hash[:], hashBytes)
-    
-    // 3. Free call to check registration (no gas cost)
-    cert, _ := instance.Certificates(nil, hash)
-    
-    // 4. Display result with metadata
-    if cert.IsValid {
-        emittedTime := time.Unix(cert.DateEmited.Int64(), 0)
-        fmt.Printf("Estate: Valid\n")
-        fmt.Printf("Name: %s\n", cert.StudentName)
-        fmt.Printf("Course: %s\n", cert.CourseName)
-        fmt.Printf("Issuer: %s\n", cert.IssuerName)
-        fmt.Printf("Date Emitted: %s\n", emittedTime.Format("02 Jan 2006 15:04:05"))
-        fmt.Println("Certificate is valid and registered")
-    } else {
-        fmt.Println("Certificate is NOT registered")
-    }
-}
-```
-
-### Transaction Signing (ECDSA)
-
-```go
-// 1. Load private key
-privateKey, _ := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
-
-// 2. Get network ID
-chainID, _ := client.NetworkID(context.Background())
-
-// 3. Create authorized signer
-auth, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
-
-// 4. Send transaction
-tx, _ := instance.RegisterCertificate(auth, dataHash)
-```
-
-This proves **you** authorized the transaction (non-repudiation).
-
 ---
 
 ## 🔍 Troubleshooting
@@ -665,28 +714,21 @@ This proves **you** authorized the transaction (non-repudiation).
 
 #### "Usage: go run main.go <file_path>"
 
-**Error**: You forgot to specify the action or missing required parameters.
-
 **Correct usage**:
+
 ```bash
-# To register (requires metadata)
+# CLI - To register (requires metadata)
 go run main.go register <file_path> <studentName> <courseName> <issuerName>
 
-# To verify
+# CLI - To verify
 go run main.go verify <file_path>
-```
-
-**Example**:
-```bash
-go run main.go register title.pdf "John Doe" "Blockchain Development" "Tech University"
-go run main.go verify title.pdf
 ```
 
 #### "Error: Cant found ALCHEMY_URL in .env file"
 
 - Verify `.env` exists in project root
 - Check `ALCHEMY_URL` is set and not commented
-- Ensure running from correct directory (`cmd/cli/`)
+- Ensure running from correct directory (`cmd/cli/` or `cmd/api/`)
 
 #### "Cant Connect to Alchemy"
 
@@ -695,7 +737,7 @@ go run main.go verify title.pdf
 - Confirm API key is valid
 - Test with: `curl $ALCHEMY_URL -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'`
 
-#### "Failed to register hash: insufficient funds"
+#### "Failed to register certificate: insufficient funds"
 
 - Request testnet tokens from [Polygon Faucet](https://faucet.polygon.technology/)
 - Check balance: `cast balance YOUR_ADDRESS --rpc-url $ALCHEMY_URL`
@@ -706,11 +748,12 @@ go run main.go verify title.pdf
 - Verify key is 64 hex characters (32 bytes)
 - Export from Metamask: Account Details → Export Private Key
 
-#### "Unknown action. Use 'register' or 'verify'."
+#### API not receiving requests
 
-- You provided an invalid action
-- Valid actions: `register`, `verify`
-- Example: `go run main.go register file.pdf`
+- Check if server is running on port 8080
+- Verify firewall allows connections
+- Check CORS configuration matches your frontend URL
+- Test with cURL before using frontend
 
 #### Go module errors
 
@@ -730,6 +773,7 @@ go mod tidy
 | Transaction submission | 2-30s | ~50,000 gas (~$0.01)  |
 | Certificate validation | <1s   | Free (view function)  |
 | Contract deployment    | ~30s  | ~300,000 gas (~$0.05) |
+| API response time      | <2s   | Free (server-side)    |
 
 _Gas costs on Polygon Amoy testnet (free). Mainnet costs will vary with POL price._
 
@@ -739,16 +783,18 @@ _Gas costs on Polygon Amoy testnet (free). Mainnet costs will vary with POL pric
 
 ### Planned Features
 
-1. ✅ Certificate registration
+1. ✅ Certificate registration with metadata
 2. ✅ Certificate validation CLI command
-3. ⏳ Batch certificate registration
-4. ⏳ Certificate revocation mechanism
-5. ⏳ Web interface (REST API)
+3. ✅ REST API for web integration
+4. ⏳ Batch certificate registration endpoint
+5. ⏳ Certificate revocation mechanism
 6. ⏳ Multi-signature admin control
-7. ⏳ IPFS integration for metadata storage
+7. ⏳ IPFS integration for document storage
 8. ⏳ Email notifications on certification
 9. ⏳ QR code generation for verification
-10. ⏳ Automated testing suite
+10. ⏳ GraphQL API
+11. ⏳ WebSocket support for real-time updates
+12. ⏳ Frontend dashboard (React/Vue)
 
 ### Roadmap to Production
 
@@ -758,6 +804,7 @@ _Gas costs on Polygon Amoy testnet (free). Mainnet costs will vary with POL pric
 - [ ] Add input validation and sanitization
 - [ ] Implement rate limiting
 - [ ] Add structured logging (zerolog/zap)
+- [ ] Add API authentication (JWT)
 - [ ] Create deployment scripts for mainnet
 - [ ] Set up monitoring and alerting
 - [ ] Write API documentation (OpenAPI/Swagger)
@@ -784,6 +831,7 @@ Contributions are welcome! Please follow these guidelines:
 - Follow [Effective Go](https://golang.org/doc/effective_go.html)
 - Add comments for exported functions
 - Keep functions small and focused
+- Place business logic in `internal/blockchain/logic.go`
 
 ---
 
@@ -798,6 +846,7 @@ MIT License - See LICENSE file for details
 - [Polygon Documentation](https://docs.polygon.technology/)
 - [Foundry Book](https://book.getfoundry.sh/)
 - [go-ethereum Documentation](https://geth.ethereum.org/docs)
+- [Gin Web Framework](https://gin-gonic.com/docs/)
 - [Solidity Docs](https://docs.soliditylang.org/)
 - [Alchemy Documentation](https://docs.alchemy.com/)
 
@@ -818,6 +867,7 @@ For questions or issues:
 Built with:
 
 - **Go** - The Go Authors
+- **Gin** - Gin-Gonic Team
 - **Solidity** - Ethereum Foundation
 - **Foundry** - Paradigm
 - **Polygon** - Polygon Labs
