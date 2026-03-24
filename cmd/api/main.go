@@ -48,6 +48,7 @@ func main() {
 	{
 		v1.POST("/register", handleRegister)
 		v1.POST("/verify", handleVerify)
+		v1.GET("/certificates/:hash", handleGetByHash)
 
 	}
 
@@ -113,5 +114,47 @@ func handleVerify(c *gin.Context) {
 		"course_name":  cert.CourseName,
 		"issuer":       cert.IssuerName,
 		"date":         cert.DateEmited.Format("2006-01-02 15:04:05"),
+	})
+}
+
+func handleGetByHash(c *gin.Context) {
+
+	// Get hash from URL
+	hash := c.Param("hash")
+
+	//Validate hash format
+	if len(hash) != 66 {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid hash format"})
+		return
+	}
+
+	// Consume blockchain
+	contractAddress := common.HexToAddress(os.Getenv("CONTRACT_ADDRESS"))
+
+	cert, err := blockchain.VerifyCertificate(client, contractAddress, hash)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to retrieve certificate"})
+		return
+	}
+
+	// Verify Certificate
+	if !cert.IsValid {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":  "not_found",
+			"message": "Certificate not found or invalid",
+		})
+		return
+	}
+
+	// Return certificate details
+	c.JSON(http.StatusOK, gin.H{
+		"status": "valid",
+		"data": gin.H{
+			"hash":         hash,
+			"student_name": cert.StudentName,
+			"course_name":  cert.CourseName,
+			"issuer":       cert.IssuerName,
+			"date":         cert.DateEmited.Format("2006-01-02 15:04:05"),
+		},
 	})
 }
