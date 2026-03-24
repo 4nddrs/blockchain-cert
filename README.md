@@ -425,7 +425,7 @@ curl -X POST http://localhost:8080/api/v1/register \
 
 ---
 
-#### 2. Verify Certificate
+#### 2. Verify Certificate (by File)
 
 **Endpoint**: `POST /api/v1/verify`
 
@@ -462,6 +462,81 @@ curl -X POST http://localhost:8080/api/v1/verify \
   "message": "Certificate not found or invalid"
 }
 ```
+
+---
+
+#### 3. Get Certificate by Hash
+
+**Endpoint**: `GET /api/v1/certificates/:hash`
+
+**Description**: Verify a certificate using its hash directly, without needing the original file.
+
+**Parameters**:
+
+- `hash` (URL parameter): Document hash in hexadecimal format (66 characters, starts with `0x`)
+
+**Example with cURL**:
+
+```bash
+curl -X GET http://localhost:8080/api/v1/certificates/0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
+```
+
+**Example with Browser**:
+
+```
+http://localhost:8080/api/v1/certificates/0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab
+```
+
+**Success Response (Valid Certificate)** (200 OK):
+
+```json
+{
+  "status": "valid",
+  "data": {
+    "hash": "0xabcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
+    "student_name": "Andres Menchaca",
+    "course_name": "Blockchain Development",
+    "issuer": "Tech Academy",
+    "date": "2026-03-24 14:30:45"
+  }
+}
+```
+
+**Not Found Response** (404 Not Found):
+
+```json
+{
+  "status": "not_found",
+  "message": "Certificate not found or invalid"
+}
+```
+
+**Error Response (Invalid Hash Format)** (400 Bad Request):
+
+```json
+{
+  "status": "error",
+  "message": "Invalid hash format"
+}
+```
+
+**Error Response (Server Error)** (500 Internal Server Error):
+
+```json
+{
+  "status": "error",
+  "message": "Failed to retrieve certificate"
+}
+```
+
+**Usage Notes**:
+
+- The hash must be exactly 66 characters long (including the `0x` prefix)
+- This endpoint is useful for:
+  - Verifying certificates from QR codes containing only the hash
+  - Building verification links that don't require file uploads
+  - Creating public verification pages with shareable URLs
+  - Mobile applications that store only hashes
 
 ---
 
