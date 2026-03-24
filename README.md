@@ -559,6 +559,72 @@ r.Use(cors.New(cors.Config{
 
 ---
 
+### 📚 API Documentation (Swagger/OpenAPI)
+
+The API includes **interactive Swagger documentation** for easy testing and integration.
+
+#### Access Swagger UI
+
+Once the API server is running:
+
+```
+http://localhost:8080/swagger/index.html
+```
+
+This provides:
+- **Interactive API testing** - Try endpoints directly from the browser
+- **Request/response examples** - See expected formats
+- **Schema definitions** - Understand data structures
+- **Authentication info** - API security details
+
+#### OpenAPI Specification
+
+The raw OpenAPI 3.0 specification is available at:
+
+```
+http://localhost:8080/api/v1/openapi.json
+```
+
+Use this JSON file to:
+- Generate client SDKs (using tools like OpenAPI Generator)
+- Import into Postman/Insomnia
+- Integrate with API gateways
+- Auto-generate documentation for other platforms
+
+#### Regenerate Swagger Docs
+
+After modifying API endpoints or annotations in `cmd/api/main.go`:
+
+```bash
+# Install swag CLI (if not already installed)
+go install github.com/swaggo/swag/cmd/swag@latest
+
+# Generate updated documentation
+swag init -g cmd/api/main.go -o docs
+
+# Restart API server to see changes
+cd cmd/api
+go run main.go
+```
+
+**Swagger Annotations Guide:**
+
+The API uses Go annotations to generate documentation:
+
+```go
+// @Summary Short description
+// @Description Detailed explanation
+// @Tags category
+// @Accept multipart/form-data
+// @Produce json
+// @Param name formData file true "Description"
+// @Success 200 {object} ResponseType
+// @Failure 400 {object} ErrorType
+// @Router /endpoint [post]
+```
+
+---
+
 ### Verify Transaction on Blockchain Explorer
 
 1. Copy the transaction hash from registration

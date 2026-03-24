@@ -2,6 +2,26 @@ package main
 
 // export GOTMPDIR=~/go-cache/tmp
 
+// @title Blockchain Certificate API
+// @version 1.0
+// @description API for registering and verifying blockchain-based certificates on Ethereum
+// @description Allows registration of PDF certificates with metadata and verification through document hash
+
+// @contact.name API Support
+// @contact.email support@blockchain-cert.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api/v1
+
+// @schemes http https
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
+
 import (
 	"log"
 	"net/http"
@@ -13,6 +33,10 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+
+	_ "github.com/4nddrs/blockchain-cert/docs"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/4nddrs/blockchain-cert/internal/blockchain"
 )
@@ -33,6 +57,8 @@ func main() {
 	// 2. Config Server
 	r := gin.Default()
 
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.StaticFile("/openapi.json", "../../docs/swagger.json")
 	// CORS Config
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000"},
@@ -49,13 +75,28 @@ func main() {
 		v1.POST("/register", handleRegister)
 		v1.POST("/verify", handleVerify)
 		v1.GET("/certificates/:hash", handleGetByHash)
-
+		v1.StaticFile("/openapi.json", "../../docs/swagger.json")
 	}
 
 	log.Println("Server running on http://localhost:8080")
 	r.Run(":8080")
 }
 
+// handleRegister godoc
+// @Summary Register a new certificate on the blockchain
+// @Description Uploads a PDF certificate, generates its SHA256 hash, and registers it on Ethereum with student metadata
+// @Description The certificate is permanently stored on the blockchain and can be verified later
+// @Tags certificates
+// @Accept multipart/form-data
+// @Produce json
+// @Param pdf formData file true "PDF certificate file to register"
+// @Param student_name formData string true "Full name of the student receiving the certificate"
+// @Param course_name formData string true "Name of the course or program completed"
+// @Param issuer formData string true "Name of the institution or organization issuing the certificate"
+// @Success 200 {object} map[string]interface{} "Certificate registered successfully with transaction hash"
+// @Failure 400 {object} map[string]interface{} "Failed to register certificate on blockchain"
+// @Failure 500 {object} map[string]interface{} "Internal server error (file save failed)"
+// @Router /register [post]
 func handleRegister(c *gin.Context) {
 	// Input data structure
 	file, _ := c.FormFile("pdf")
@@ -91,6 +132,17 @@ func handleRegister(c *gin.Context) {
 	})
 }
 
+// handleVerify godoc
+// @Summary Verify a certificate by uploading the PDF
+// @Description Uploads a PDF file, generates its hash, and checks if it exists on the blockchain
+// @Description Returns certificate details if found and valid
+// @Tags certificates
+// @Accept multipart/form-data
+// @Produce json
+// @Param pdf formData file true "PDF certificate file to verify"
+// @Success 200 {object} map[string]interface{} "Certificate is valid with full details (student_name, course_name, issuer, date)"
+// @Failure 404 {object} map[string]interface{} "Certificate not found or invalid"
+// @Router /verify [post]
 func handleVerify(c *gin.Context) {
 	file, _ := c.FormFile("pdf")
 
@@ -117,6 +169,19 @@ func handleVerify(c *gin.Context) {
 	})
 }
 
+// handleGetByHash godoc
+// @Summary Get certificate details by hash
+// @Description Retrieves certificate information from the blockchain using its SHA256 hash
+// @Description No file upload required - only the hash is needed for lookup
+// @Tags certificates
+// @Accept json
+// @Produce json
+// @Param hash path string true "SHA256 hash of the certificate (66 characters including 0x prefix)" minlength(66) maxlength(66)
+// @Success 200 {object} map[string]interface{} "Certificate found with full details"
+// @Failure 400 {object} map[string]interface{} "Invalid hash format (must be 66 characters)"
+// @Failure 404 {object} map[string]interface{} "Certificate not found or invalid"
+// @Failure 500 {object} map[string]interface{} "Failed to retrieve certificate from blockchain"
+// @Router /certificates/{hash} [get]
 func handleGetByHash(c *gin.Context) {
 
 	// Get hash from URL

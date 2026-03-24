@@ -1,0 +1,144 @@
+basePath: /api/v1
+host: localhost:8080
+info:
+  contact:
+    email: support@blockchain-cert.com
+    name: API Support
+  description: |-
+    API for registering and verifying blockchain-based certificates on Ethereum
+    Allows registration of PDF certificates with metadata and verification through document hash
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: Blockchain Certificate API
+  version: "1.0"
+paths:
+  /certificates/{hash}:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        Retrieves certificate information from the blockchain using its SHA256 hash
+        No file upload required - only the hash is needed for lookup
+      parameters:
+      - description: SHA256 hash of the certificate (66 characters including 0x prefix)
+        in: path
+        maxLength: 66
+        minLength: 66
+        name: hash
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Certificate found with full details
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid hash format (must be 66 characters)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Certificate not found or invalid
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Failed to retrieve certificate from blockchain
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get certificate details by hash
+      tags:
+      - certificates
+  /register:
+    post:
+      consumes:
+      - multipart/form-data
+      description: |-
+        Uploads a PDF certificate, generates its SHA256 hash, and registers it on Ethereum with student metadata
+        The certificate is permanently stored on the blockchain and can be verified later
+      parameters:
+      - description: PDF certificate file to register
+        in: formData
+        name: pdf
+        required: true
+        type: file
+      - description: Full name of the student receiving the certificate
+        in: formData
+        name: student_name
+        required: true
+        type: string
+      - description: Name of the course or program completed
+        in: formData
+        name: course_name
+        required: true
+        type: string
+      - description: Name of the institution or organization issuing the certificate
+        in: formData
+        name: issuer
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Certificate registered successfully with transaction hash
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Failed to register certificate on blockchain
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error (file save failed)
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Register a new certificate on the blockchain
+      tags:
+      - certificates
+  /verify:
+    post:
+      consumes:
+      - multipart/form-data
+      description: |-
+        Uploads a PDF file, generates its hash, and checks if it exists on the blockchain
+        Returns certificate details if found and valid
+      parameters:
+      - description: PDF certificate file to verify
+        in: formData
+        name: pdf
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Certificate is valid with full details (student_name, course_name,
+            issuer, date)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Certificate not found or invalid
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verify a certificate by uploading the PDF
+      tags:
+      - certificates
+schemes:
+- http
+- https
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

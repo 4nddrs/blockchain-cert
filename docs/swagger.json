@@ -1,0 +1,195 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "API for registering and verifying blockchain-based certificates on Ethereum\nAllows registration of PDF certificates with metadata and verification through document hash",
+        "title": "Blockchain Certificate API",
+        "contact": {
+            "name": "API Support",
+            "email": "support@blockchain-cert.com"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/api/v1",
+    "paths": {
+        "/certificates/{hash}": {
+            "get": {
+                "description": "Retrieves certificate information from the blockchain using its SHA256 hash\nNo file upload required - only the hash is needed for lookup",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "certificates"
+                ],
+                "summary": "Get certificate details by hash",
+                "parameters": [
+                    {
+                        "maxLength": 66,
+                        "minLength": 66,
+                        "type": "string",
+                        "description": "SHA256 hash of the certificate (66 characters including 0x prefix)",
+                        "name": "hash",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Certificate found with full details",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid hash format (must be 66 characters)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Certificate not found or invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to retrieve certificate from blockchain",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/register": {
+            "post": {
+                "description": "Uploads a PDF certificate, generates its SHA256 hash, and registers it on Ethereum with student metadata\nThe certificate is permanently stored on the blockchain and can be verified later",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "certificates"
+                ],
+                "summary": "Register a new certificate on the blockchain",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "PDF certificate file to register",
+                        "name": "pdf",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Full name of the student receiving the certificate",
+                        "name": "student_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name of the course or program completed",
+                        "name": "course_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name of the institution or organization issuing the certificate",
+                        "name": "issuer",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Certificate registered successfully with transaction hash",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Failed to register certificate on blockchain",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error (file save failed)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/verify": {
+            "post": {
+                "description": "Uploads a PDF file, generates its hash, and checks if it exists on the blockchain\nReturns certificate details if found and valid",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "certificates"
+                ],
+                "summary": "Verify a certificate by uploading the PDF",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "PDF certificate file to verify",
+                        "name": "pdf",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Certificate is valid with full details (student_name, course_name, issuer, date)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Certificate not found or invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}
