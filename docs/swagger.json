@@ -20,9 +20,213 @@
     "host": "localhost:8080",
     "basePath": "/api/v1",
     "paths": {
+        "/admin/institutions": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves a list of all registered institutions with their credits and plan information",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List all institutions",
+                "responses": {
+                    "200": {
+                        "description": "List of institutions",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Institution"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to retrieve institutions",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Creates a new institution with an API key and initial credits based on the selected plan",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Create a new institution",
+                "parameters": [
+                    {
+                        "description": "Institution details",
+                        "name": "institution",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.CreateInstitutionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Institution created successfully",
+                        "schema": {
+                            "$ref": "#/definitions/models.Institution"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create institution",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/institutions/{id}/credits": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Increases (positive) or decreases (negative) the credit balance for a specific institution. Example: 50 adds 50 credits, -20 removes 20 credits.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Add or remove credits from an institution",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Institution ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Credits to add (positive) or remove (negative)",
+                        "name": "credits",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.AddCreditsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Credits updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or insufficient credits",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update credits",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/institutions/{id}/plan": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Changes the plan type for a specific institution (e.g., basic to premium)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update institution plan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Institution ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New plan details",
+                        "name": "plan",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.UpdatePlanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Plan updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update plan",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/certificates/{hash}": {
             "get": {
-                "description": "Retrieves certificate information from the blockchain using its SHA256 hash\nNo file upload required - only the hash is needed for lookup",
+                "description": "Retrieves certificate information from the blockchain using its SHA256 hash. No file upload required.",
                 "consumes": [
                     "application/json"
                 ],
@@ -38,7 +242,7 @@
                         "maxLength": 66,
                         "minLength": 66,
                         "type": "string",
-                        "description": "SHA256 hash of the certificate (66 characters including 0x prefix)",
+                        "description": "SHA256 hash of the certificate (must be 66 characters: 0x + 64 hex digits)",
                         "name": "hash",
                         "in": "path",
                         "required": true
@@ -46,31 +250,27 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Certificate found with full details",
+                        "description": "Certificate found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_handlers.CertificateDetailsResponse"
                         }
                     },
                     "400": {
-                        "description": "Invalid hash format (must be 66 characters)",
+                        "description": "Invalid hash format",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Certificate not found or invalid",
+                        "description": "Certificate not found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Failed to retrieve certificate from blockchain",
+                        "description": "Failed to retrieve certificate",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
                         }
                     }
                 }
@@ -78,7 +278,7 @@
         },
         "/register": {
             "post": {
-                "description": "Uploads a PDF certificate, generates its SHA256 hash, and registers it on Ethereum with student metadata\nThe certificate is permanently stored on the blockchain and can be verified later",
+                "description": "Uploads a PDF certificate, generates its SHA256 hash, and registers it on Ethereum with student metadata. The certificate is permanently stored on the blockchain and can be verified later.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -117,28 +317,61 @@
                         "name": "issuer",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Browser fingerprint for trial usage tracking",
+                        "name": "fingerprint",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Institution API key (if not provided, trial mode is used)",
+                        "name": "X-API-Key",
+                        "in": "header"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Certificate registered successfully with transaction hash",
+                        "description": "Certificate registered successfully",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_handlers.RegisterResponse"
                         }
                     },
                     "400": {
-                        "description": "Failed to register certificate on blockchain",
+                        "description": "Invalid request or registration failed",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid API key",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "402": {
+                        "description": "Insufficient credits",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Certificate already registered",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Free trial limit reached",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal server error (file save failed)",
+                        "description": "Internal server error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
                         }
                     }
                 }
@@ -146,7 +379,7 @@
         },
         "/verify": {
             "post": {
-                "description": "Uploads a PDF file, generates its hash, and checks if it exists on the blockchain\nReturns certificate details if found and valid",
+                "description": "Uploads a PDF file, generates its hash, and checks if it exists on the blockchain. Returns certificate details if found and valid.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -168,19 +401,205 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Certificate is valid with full details (student_name, course_name, issuer, date)",
+                        "description": "Certificate is valid",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_handlers.VerifyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Certificate not found or invalid",
+                        "description": "Certificate not found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
                         }
                     }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "internal_handlers.AddCreditsRequest": {
+            "type": "object",
+            "required": [
+                "additional_credits"
+            ],
+            "properties": {
+                "additional_credits": {
+                    "type": "integer",
+                    "example": 500
+                }
+            }
+        },
+        "internal_handlers.CertificateData": {
+            "type": "object",
+            "properties": {
+                "course_name": {
+                    "type": "string",
+                    "example": "Blockchain Development"
+                },
+                "date": {
+                    "type": "string",
+                    "example": "2026-03-27 20:00:00"
+                },
+                "hash": {
+                    "type": "string",
+                    "example": "0xabcd1234..."
+                },
+                "issuer": {
+                    "type": "string",
+                    "example": "Tech University"
+                },
+                "student_name": {
+                    "type": "string",
+                    "example": "John Doe"
+                }
+            }
+        },
+        "internal_handlers.CertificateDetailsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_handlers.CertificateData"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "valid"
+                }
+            }
+        },
+        "internal_handlers.CreateInstitutionRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "name",
+                "plan"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "contact@techuni.edu"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Tech University"
+                },
+                "plan": {
+                    "type": "string",
+                    "enum": [
+                        "basic",
+                        "premium",
+                        "enterprise"
+                    ],
+                    "example": "premium"
+                }
+            }
+        },
+        "internal_handlers.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Certificate not found"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Additional error details"
+                }
+            }
+        },
+        "internal_handlers.RegisterResponse": {
+            "type": "object",
+            "properties": {
+                "hash": {
+                    "type": "string",
+                    "example": "0xabcd1234..."
+                },
+                "status": {
+                    "type": "string",
+                    "example": "success"
+                },
+                "tx_hash": {
+                    "type": "string",
+                    "example": "0x1234abcd..."
+                }
+            }
+        },
+        "internal_handlers.UpdatePlanRequest": {
+            "type": "object",
+            "required": [
+                "new_plan"
+            ],
+            "properties": {
+                "new_plan": {
+                    "type": "string",
+                    "enum": [
+                        "basic",
+                        "premium",
+                        "enterprise"
+                    ],
+                    "example": "enterprise"
+                }
+            }
+        },
+        "internal_handlers.VerifyResponse": {
+            "type": "object",
+            "properties": {
+                "course_name": {
+                    "type": "string",
+                    "example": "Blockchain Development"
+                },
+                "date": {
+                    "type": "string",
+                    "example": "2026-03-27 20:00:00"
+                },
+                "issuer": {
+                    "type": "string",
+                    "example": "Tech University"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "valid"
+                },
+                "student_name": {
+                    "type": "string",
+                    "example": "John Doe"
+                }
+            }
+        },
+        "models.Institution": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "credits_remaining": {
+                    "type": "integer"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "plan_type": {
+                    "type": "string"
                 }
             }
         }

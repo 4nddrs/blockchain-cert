@@ -1,4 +1,127 @@
 basePath: /api/v1
+definitions:
+  internal_handlers.AddCreditsRequest:
+    properties:
+      additional_credits:
+        example: 500
+        type: integer
+    required:
+    - additional_credits
+    type: object
+  internal_handlers.CertificateData:
+    properties:
+      course_name:
+        example: Blockchain Development
+        type: string
+      date:
+        example: "2026-03-27 20:00:00"
+        type: string
+      hash:
+        example: 0xabcd1234...
+        type: string
+      issuer:
+        example: Tech University
+        type: string
+      student_name:
+        example: John Doe
+        type: string
+    type: object
+  internal_handlers.CertificateDetailsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_handlers.CertificateData'
+      status:
+        example: valid
+        type: string
+    type: object
+  internal_handlers.CreateInstitutionRequest:
+    properties:
+      email:
+        example: contact@techuni.edu
+        type: string
+      name:
+        example: Tech University
+        type: string
+      plan:
+        enum:
+        - basic
+        - premium
+        - enterprise
+        example: premium
+        type: string
+    required:
+    - email
+    - name
+    - plan
+    type: object
+  internal_handlers.ErrorResponse:
+    properties:
+      error:
+        example: Certificate not found
+        type: string
+      message:
+        example: Additional error details
+        type: string
+    type: object
+  internal_handlers.RegisterResponse:
+    properties:
+      hash:
+        example: 0xabcd1234...
+        type: string
+      status:
+        example: success
+        type: string
+      tx_hash:
+        example: 0x1234abcd...
+        type: string
+    type: object
+  internal_handlers.UpdatePlanRequest:
+    properties:
+      new_plan:
+        enum:
+        - basic
+        - premium
+        - enterprise
+        example: enterprise
+        type: string
+    required:
+    - new_plan
+    type: object
+  internal_handlers.VerifyResponse:
+    properties:
+      course_name:
+        example: Blockchain Development
+        type: string
+      date:
+        example: "2026-03-27 20:00:00"
+        type: string
+      issuer:
+        example: Tech University
+        type: string
+      status:
+        example: valid
+        type: string
+      student_name:
+        example: John Doe
+        type: string
+    type: object
+  models.Institution:
+    properties:
+      api_key:
+        type: string
+      created_at:
+        type: string
+      credits_remaining:
+        type: integer
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      plan_type:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -13,15 +136,149 @@ info:
   title: Blockchain Certificate API
   version: "1.0"
 paths:
+  /admin/institutions:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a list of all registered institutions with their credits
+        and plan information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of institutions
+          schema:
+            items:
+              $ref: '#/definitions/models.Institution'
+            type: array
+        "500":
+          description: Failed to retrieve institutions
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List all institutions
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: Creates a new institution with an API key and initial credits based
+        on the selected plan
+      parameters:
+      - description: Institution details
+        in: body
+        name: institution
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.CreateInstitutionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Institution created successfully
+          schema:
+            $ref: '#/definitions/models.Institution'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Failed to create institution
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a new institution
+      tags:
+      - admin
+  /admin/institutions/{id}/credits:
+    post:
+      consumes:
+      - application/json
+      description: 'Increases (positive) or decreases (negative) the credit balance
+        for a specific institution. Example: 50 adds 50 credits, -20 removes 20 credits.'
+      parameters:
+      - description: Institution ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Credits to add (positive) or remove (negative)
+        in: body
+        name: credits
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.AddCreditsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Credits updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body or insufficient credits
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Failed to update credits
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Add or remove credits from an institution
+      tags:
+      - admin
+  /admin/institutions/{id}/plan:
+    put:
+      consumes:
+      - application/json
+      description: Changes the plan type for a specific institution (e.g., basic to
+        premium)
+      parameters:
+      - description: Institution ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New plan details
+        in: body
+        name: plan
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.UpdatePlanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Plan updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Failed to update plan
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update institution plan
+      tags:
+      - admin
   /certificates/{hash}:
     get:
       consumes:
       - application/json
-      description: |-
-        Retrieves certificate information from the blockchain using its SHA256 hash
-        No file upload required - only the hash is needed for lookup
+      description: Retrieves certificate information from the blockchain using its
+        SHA256 hash. No file upload required.
       parameters:
-      - description: SHA256 hash of the certificate (66 characters including 0x prefix)
+      - description: 'SHA256 hash of the certificate (must be 66 characters: 0x +
+          64 hex digits)'
         in: path
         maxLength: 66
         minLength: 66
@@ -32,25 +289,21 @@ paths:
       - application/json
       responses:
         "200":
-          description: Certificate found with full details
+          description: Certificate found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_handlers.CertificateDetailsResponse'
         "400":
-          description: Invalid hash format (must be 66 characters)
+          description: Invalid hash format
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
         "404":
-          description: Certificate not found or invalid
+          description: Certificate not found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
         "500":
-          description: Failed to retrieve certificate from blockchain
+          description: Failed to retrieve certificate
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
       summary: Get certificate details by hash
       tags:
       - certificates
@@ -58,9 +311,9 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: |-
-        Uploads a PDF certificate, generates its SHA256 hash, and registers it on Ethereum with student metadata
-        The certificate is permanently stored on the blockchain and can be verified later
+      description: Uploads a PDF certificate, generates its SHA256 hash, and registers
+        it on Ethereum with student metadata. The certificate is permanently stored
+        on the blockchain and can be verified later.
       parameters:
       - description: PDF certificate file to register
         in: formData
@@ -82,24 +335,45 @@ paths:
         name: issuer
         required: true
         type: string
+      - description: Browser fingerprint for trial usage tracking
+        in: formData
+        name: fingerprint
+        type: string
+      - description: Institution API key (if not provided, trial mode is used)
+        in: header
+        name: X-API-Key
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: Certificate registered successfully with transaction hash
+          description: Certificate registered successfully
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_handlers.RegisterResponse'
         "400":
-          description: Failed to register certificate on blockchain
+          description: Invalid request or registration failed
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "401":
+          description: Invalid API key
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "402":
+          description: Insufficient credits
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "409":
+          description: Certificate already registered
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "429":
+          description: Free trial limit reached
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
         "500":
-          description: Internal server error (file save failed)
+          description: Internal server error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
       summary: Register a new certificate on the blockchain
       tags:
       - certificates
@@ -107,9 +381,8 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: |-
-        Uploads a PDF file, generates its hash, and checks if it exists on the blockchain
-        Returns certificate details if found and valid
+      description: Uploads a PDF file, generates its hash, and checks if it exists
+        on the blockchain. Returns certificate details if found and valid.
       parameters:
       - description: PDF certificate file to verify
         in: formData
@@ -120,16 +393,21 @@ paths:
       - application/json
       responses:
         "200":
-          description: Certificate is valid with full details (student_name, course_name,
-            issuer, date)
+          description: Certificate is valid
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_handlers.VerifyResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
         "404":
-          description: Certificate not found or invalid
+          description: Certificate not found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
       summary: Verify a certificate by uploading the PDF
       tags:
       - certificates

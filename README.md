@@ -110,6 +110,8 @@ Anyone can query: certificates[hash] ──▶ {isValid, studentName, courseName
 | **Blockchain Client**      | go-ethereum v1.17.1  | Ethereum interaction library            |
 | **API Framework**          | Gin v1.12.0          | HTTP REST API server                    |
 | **CORS Middleware**        | gin-contrib/cors     | Cross-origin resource sharing           |
+| **Database**               | PostgreSQL/Supabase  | Certificate metadata & usage tracking   |
+| **API Documentation**      | Swagger/OpenAPI 2.0  | Interactive API documentation           |
 | **Cryptography**           | Keccak256            | Document hashing                        |
 | **Environment Management** | godotenv             | Secure configuration                    |
 | **JSON Processing**        | jq                   | ABI extraction                          |
@@ -126,17 +128,37 @@ blockchain-cert/
 │   │   ├── main.go           # CLI entry point
 │   │   └── pdfs/             # Test PDFs directory (gitignored)
 │   └── api/
-│       ├── main.go           # REST API server
+│       ├── main.go           # REST API server (refactored, minimal)
 │       └── temp_/            # Temporary upload directory
 ├── internal/
 │   ├── blockchain/
 │   │   ├── logic.go          # Core business logic (register/verify)
 │   │   ├── certifyer.go      # Auto-generated contract bindings
 │   │   └── client.go         # Ethereum client connection (deprecated)
+│   ├── config/
+│   │   └── config.go         # Centralized configuration management
+│   ├── handlers/
+│   │   ├── certificate.go    # HTTP handlers for certificates
+│   │   └── admin.go          # HTTP handlers for admin operations
+│   ├── middleware/
+│   │   └── auth.go           # Authentication middleware
+│   ├── repository/
+│   │   └── *.go              # Database access layer
 │   └── crypto/
 │       └── hash.go           # SHA256 file hashing (deprecated)
+├── database/
+│   └── database.go           # Database connection and initialization
+├── models/
+│   ├── certificate.go        # Certificate data model
+│   ├── institution.go        # Institution data model
+│   ├── trial.go              # Trial usage tracking model
+│   └── billing_log.go        # Billing/usage log model
 ├── contracts/
 │   └── Certifyer.sol         # Solidity smart contract
+├── docs/
+│   ├── docs.go               # Swagger documentation (auto-generated)
+│   ├── swagger.json          # OpenAPI specification (auto-generated)
+│   └── swagger.yaml          # OpenAPI YAML format (auto-generated)
 ├── out/                      # Foundry build artifacts (auto-generated)
 │   └── Certifyer.sol/
 │       └── Certifyer.json    # Compiled contract ABI + bytecode
@@ -151,9 +173,16 @@ blockchain-cert/
 ### Key Directories
 
 - **`cmd/cli/`**: Command-line interface executable with register and verify functionality
-- **`cmd/api/`**: REST API server for web applications
+- **`cmd/api/`**: REST API server (thin wrapper around handlers)
 - **`internal/blockchain/`**: Core business logic and smart contract bindings
+- **`internal/config/`**: Configuration management with environment variable validation
+- **`internal/handlers/`**: HTTP request handlers separated by domain (certificates, admin)
+- **`internal/middleware/`**: Reusable middleware (authentication, logging, etc.)
+- **`internal/repository/`**: Database operations and data access layer
+- **`database/`**: Database connection management
+- **`models/`**: Data structures for database entities
 - **`contracts/`**: Solidity smart contracts source code
+- **`docs/`**: Auto-generated Swagger/OpenAPI documentation
 - **`out/`**: Foundry compilation artifacts
 
 ---
@@ -223,15 +252,21 @@ export PATH=$PATH:$(go env GOPATH)/bin
 Create `.env` in the project root:
 
 ```env
-# Alchemy RPC endpoint
+# Blockchain Configuration
 ALCHEMY_URL=https://polygon-amoy.g.alchemy.com/v2/YOUR_API_KEY
-
-# Your Metamask private key (starts with 0x)
-# ⚠️ NEVER commit this file to git
+CONTRACT_ADDRESS=0xYOUR_DEPLOYED_CONTRACT_ADDRESS
 PRIVATE_KEY=0xYOUR_PRIVATE_KEY_HERE
 
-# Contract address (fill after deployment)
-CONTRACT_ADDRESS=0x
+# Database Configuration (Supabase)
+DATABASE_URL=postgresql://user:password@host:port/database
+
+# Admin Configuration
+ADMIN_SECRET=your-secure-admin-secret-token
+
+# Server Configuration (Optional)
+SERVER_PORT=8080
+CORS_ORIGINS=http://localhost:3000
+TEMP_UPLOAD_DIR=./temp_uploads
 ```
 
 **⚠️ Security Warning**: Never commit `.env` to version control. Ensure it's listed in `.gitignore`.
@@ -371,6 +406,12 @@ Status: Invalid
 
 ## 🌐 REST API Usage
 
+The API has been refactored with clean architecture principles:
+- **Separated concerns**: Handlers, middleware, and config are in separate packages
+- **Database integration**: Certificate metadata stored in PostgreSQL/Supabase
+- **Trial & Institution modes**: Supports both free trial and paid institution accounts
+- **Swagger documentation**: Interactive API testing UI included
+
 ### Start the API Server
 
 ```bash
@@ -378,9 +419,76 @@ cd cmd/api
 go run main.go
 
 # Server will start on http://localhost:8080
+# Swagger UI: http://localhost:8080/swagger/index.html
 ```
 
+### 🎯 API Features
+
+#### **Dual Usage Modes**
+
+1. **Trial Mode** (No API Key)
+   - Free tier for testing
+   - Limited registrations per IP/fingerprint
+   - No authentication required
+
+2. **Institution Mode** (With API Key)
+   - Requires valid `X-API-Key` header
+   - Credit-based system
+   - Managed via admin endpoints
+
+---
+
+### 📚 Interactive API Documentation (Swagger)
+
+The API includes **interactive Swagger documentation** for easy testing and integration.
+
+#### Access Swagger UI
+
+Once the API server is running, visit:
+
+```
+http://localhost:8080/swagger/index.html
+```
+
+**Features:**
+- ✅ **Try it out** - Test endpoints directly from your browser
+- ✅ **Request/Response examples** - See expected formats
+- ✅ **Schema definitions** - Understand data structures
+- ✅ **Authentication setup** - Configure API keys and admin auth
+- ✅ **File upload testing** - Upload PDFs for registration/verification
+
+#### Quick Testing Workflow in Swagger
+
+1. **Register a Certificate (Trial Mode)**
+   - Navigate to `POST /api/v1/register`
+   - Click "Try it out"
+   - Upload a PDF file
+   - Fill in student_name, course_name, issuer
+   - Click "Execute"
+   - Copy the `hash` from response
+
+2. **Verify Certificate**
+   - Navigate to `POST /api/v1/verify`
+   - Upload the same PDF
+   - Click "Execute"
+   - See certificate details
+
+3. **Get Certificate by Hash**
+   - Navigate to `GET /api/v1/certificates/{hash}`
+   - Paste the hash from step 1
+   - Click "Execute"
+
+4. **Admin Operations** (Requires Authentication)
+   - Click "Authorize" button (top-right)
+   - Enter your `ADMIN_SECRET` value
+   - Click "Authorize"
+   - Now you can access admin endpoints
+
+---
+
 ### API Endpoints
+
+#### 🔓 Public Endpoints (No Authentication Required)
 
 #### 1. Register Certificate
 
@@ -388,17 +496,32 @@ go run main.go
 
 **Content-Type**: `multipart/form-data`
 
+**Headers** (Optional):
+- `X-API-Key`: Institution API key (if not provided, uses trial mode)
+
 **Parameters**:
 
 - `pdf` (file): PDF document to certify
 - `student_name` (string): Student's full name
 - `course_name` (string): Course name
 - `issuer` (string): Issuing organization
+- `fingerprint` (string, optional): Browser fingerprint for trial tracking
 
-**Example with cURL**:
+**Trial Mode Example with cURL**:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/register \
+  -F "pdf=@certificate.pdf" \
+  -F "student_name=Andres Menchaca" \
+  -F "course_name=Blockchain Development" \
+  -F "issuer=Tech Academy"
+```
+
+**Institution Mode Example with cURL**:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/register \
+  -H "X-API-Key: your-institution-api-key" \
   -F "pdf=@certificate.pdf" \
   -F "student_name=Andres Menchaca" \
   -F "course_name=Blockchain Development" \
@@ -415,13 +538,43 @@ curl -X POST http://localhost:8080/api/v1/register \
 }
 ```
 
-**Error Response** (400 Bad Request):
+**Error Responses**:
 
-```json
-{
-  "error": "Failed to register certificate"
-}
-```
+- **400 Bad Request**: Missing required fields or invalid data
+  ```json
+  {
+    "error": "student_name, course_name, and issuer are required"
+  }
+  ```
+
+- **401 Unauthorized**: Invalid API key (institution mode)
+  ```json
+  {
+    "error": "Invalid API key"
+  }
+  ```
+
+- **402 Payment Required**: Institution out of credits
+  ```json
+  {
+    "error": "Insufficient credits. Please contact support."
+  }
+  ```
+
+- **409 Conflict**: Certificate already registered
+  ```json
+  {
+    "error": "Certificate already registered",
+    "tx_hash": "0x..."
+  }
+  ```
+
+- **429 Too Many Requests**: Trial limit reached
+  ```json
+  {
+    "error": "Free trial limit reached"
+  }
+  ```
 
 ---
 
@@ -540,22 +693,307 @@ http://localhost:8080/api/v1/certificates/0xabcd1234567890abcdef1234567890abcdef
 
 ---
 
+#### 🔒 Admin Endpoints (Authentication Required)
+
+Admin endpoints require the `Authorization` header with your admin secret token.
+
+#### 4. Create Institution
+
+**Endpoint**: `POST /api/v1/admin/institutions`
+
+**Headers**:
+- `Authorization`: Your admin secret (set in `.env` as `ADMIN_SECRET`)
+
+**Content-Type**: `application/json`
+
+**Request Body**:
+
+```json
+{
+  "name": "Tech University",
+  "email": "contact@techuni.edu",
+  "plan": "premium"
+}
+```
+
+**Plan Options**: `basic`, `premium`, `enterprise`
+
+**Example with cURL**:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/admin/institutions \
+  -H "Authorization: your-admin-secret" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Tech University",
+    "email": "contact@techuni.edu",
+    "plan": "premium"
+  }'
+```
+
+**Success Response** (201 Created):
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Tech University",
+  "email": "contact@techuni.edu",
+  "plan_type": "premium",
+  "api_key": "inst_abc123def456ghi789",
+  "credits_remaining": 1000,
+  "created_at": "2026-03-27T20:00:00Z"
+}
+```
+
+**Error Responses**:
+
+- **400 Bad Request**: Invalid input
+  ```json
+  {
+    "error": "Key: 'CreateInstitutionRequest.Email' Error:Field validation for 'Email' failed on the 'email' tag"
+  }
+  ```
+
+- **403 Forbidden**: Invalid or missing admin secret
+  ```json
+  {
+    "error": "Unauthorized access"
+  }
+  ```
+
+---
+
+#### 5. List Institutions
+
+**Endpoint**: `GET /api/v1/admin/institutions`
+
+**Headers**:
+- `Authorization`: Your admin secret
+
+**Example with cURL**:
+
+```bash
+curl -X GET http://localhost:8080/api/v1/admin/institutions \
+  -H "Authorization: your-admin-secret"
+```
+
+**Success Response** (200 OK):
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Tech University",
+    "email": "contact@techuni.edu",
+    "plan_type": "premium",
+    "api_key": "inst_abc123def456ghi789",
+    "credits_remaining": 950,
+    "created_at": "2026-03-27T20:00:00Z"
+  },
+  {
+    "id": "660e8400-e29b-41d4-a716-446655440001",
+    "name": "Business School",
+    "email": "admin@bizschool.com",
+    "plan_type": "enterprise",
+    "api_key": "inst_xyz789abc456def123",
+    "credits_remaining": 5000,
+    "created_at": "2026-03-26T15:30:00Z"
+  }
+]
+```
+
+---
+
+#### 6. Add Credits to Institution
+
+**Endpoint**: `POST /api/v1/admin/institutions/{id}/credits`
+
+**Headers**:
+- `Authorization`: Your admin secret
+
+**Content-Type**: `application/json`
+
+**URL Parameters**:
+- `id`: Institution UUID
+
+**Request Body**:
+
+```json
+{
+  "additional_credits": 500
+}
+```
+
+**Example with cURL**:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/admin/institutions/550e8400-e29b-41d4-a716-446655440000/credits \
+  -H "Authorization: your-admin-secret" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "additional_credits": 500
+  }'
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "message": "Credits added successfully",
+  "institution_id": "550e8400-e29b-41d4-a716-446655440000",
+  "credits_added": 500
+}
+```
+
+**Error Responses**:
+
+- **400 Bad Request**: Invalid input (negative or zero credits)
+  ```json
+  {
+    "error": "Key: 'AddCreditsRequest.AdditionalCredits' Error:Field validation for 'AdditionalCredits' failed on the 'min' tag"
+  }
+  ```
+
+- **500 Internal Server Error**: Database error
+  ```json
+  {
+    "error": "Failed to add credits"
+  }
+  ```
+
+---
+
+#### 7. Update Institution Plan
+
+**Endpoint**: `PUT /api/v1/admin/institutions/{id}/plan`
+
+**Headers**:
+- `Authorization`: Your admin secret
+
+**Content-Type**: `application/json`
+
+**URL Parameters**:
+- `id`: Institution UUID
+
+**Request Body**:
+
+```json
+{
+  "new_plan": "enterprise"
+}
+```
+
+**Plan Options**: `basic`, `premium`, `enterprise`
+
+**Example with cURL**:
+
+```bash
+curl -X PUT http://localhost:8080/api/v1/admin/institutions/550e8400-e29b-41d4-a716-446655440000/plan \
+  -H "Authorization: your-admin-secret" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "new_plan": "enterprise"
+  }'
+```
+
+**Success Response** (200 OK):
+
+```json
+{
+  "message": "Plan updated successfully",
+  "institution_id": "550e8400-e29b-41d4-a716-446655440000",
+  "new_plan": "enterprise"
+}
+```
+
+**Error Responses**:
+
+- **400 Bad Request**: Invalid plan type
+  ```json
+  {
+    "error": "Key: 'UpdatePlanRequest.NewPlan' Error:Field validation for 'NewPlan' failed on the 'required' tag"
+  }
+  ```
+
+- **500 Internal Server Error**: Database error
+  ```json
+  {
+    "error": "Failed to update plan"
+  }
+  ```
+
+---
+
+### Database Integration
+
+The system now stores certificate metadata in a database (PostgreSQL/Supabase) alongside blockchain registration:
+
+**Stored Data:**
+- Certificate hash and metadata (student name, course, issuer)
+- Transaction hash for blockchain verification
+- Institution usage tracking (credits consumed)
+- Trial usage tracking (IP address, fingerprint)
+- Billing logs for audit trail
+
+**Benefits:**
+- ✅ Fast querying without blockchain calls
+- ✅ Usage analytics and reporting
+- ✅ Credit management for institutions
+- ✅ Trial abuse prevention
+- ✅ Audit trail for compliance
+
+**Database Schema:**
+
+```
+certificates:
+  - file_hash (unique)
+  - student_name
+  - course_name
+  - tx_hash
+  - created_at
+
+institutions:
+  - id (UUID)
+  - name
+  - email
+  - api_key (unique)
+  - plan_type
+  - credits_remaining
+  - created_at
+
+trial_usage:
+  - ip_address
+  - fingerprint
+  - usage_count
+  - last_used_at
+
+billing_logs:
+  - institution_id
+  - action_type
+  - cost
+  - timestamp
+```
+
+---
+
 ### CORS Configuration
 
-The API is configured with CORS to accept requests from `http://localhost:3000` (typical React/Vue development server).
+The API CORS settings are managed centrally via environment variables.
 
-To modify allowed origins, edit `cmd/api/main.go`:
+**Default Configuration:**
+- Allowed Origins: `http://localhost:3000` (or value from `CORS_ORIGINS` env var)
+- Allowed Methods: `GET`, `POST`, `OPTIONS`
+- Allowed Headers: `Origin`, `Content-Type`, `X-API-Key`
+- Credentials: Enabled
+- Max Age: 12 hours
 
-```go
-r.Use(cors.New(cors.Config{
-    AllowOrigins:     []string{"http://localhost:3000", "https://yourdomain.com"},
-    AllowMethods:     []string{"POST", "GET", "OPTIONS"},
-    AllowHeaders:     []string{"Origin", "Content-Type"},
-    ExposeHeaders:    []string{"Content-Length"},
-    AllowCredentials: true,
-    MaxAge:           12 * time.Hour,
-}))
+To modify allowed origins, update your `.env`:
+
+```env
+CORS_ORIGINS=http://localhost:3000,https://yourdomain.com
 ```
+
+Or modify `internal/config/config.go` for more complex CORS rules.
 
 ---
 
@@ -593,14 +1031,14 @@ Use this JSON file to:
 
 #### Regenerate Swagger Docs
 
-After modifying API endpoints or annotations in `cmd/api/main.go`:
+After modifying API endpoints or annotations:
 
 ```bash
 # Install swag CLI (if not already installed)
 go install github.com/swaggo/swag/cmd/swag@latest
 
-# Generate updated documentation
-swag init -g cmd/api/main.go -o docs
+# Generate updated documentation from project root
+swag init -g cmd/api/main.go --parseDependency --parseInternal
 
 # Restart API server to see changes
 cd cmd/api
@@ -609,18 +1047,32 @@ go run main.go
 
 **Swagger Annotations Guide:**
 
-The API uses Go annotations to generate documentation:
+The API uses Go doc comments to generate documentation:
 
 ```go
 // @Summary Short description
 // @Description Detailed explanation
 // @Tags category
-// @Accept multipart/form-data
+// @Accept multipart/form-data or json
 // @Produce json
 // @Param name formData file true "Description"
+// @Param X-API-Key header string false "Institution API key"
 // @Success 200 {object} ResponseType
 // @Failure 400 {object} ErrorType
 // @Router /endpoint [post]
+```
+
+**Structured Response Types:**
+
+Response models are defined in `internal/handlers/` for better documentation:
+
+```go
+// RegisterResponse represents the response for certificate registration
+type RegisterResponse struct {
+    Status string `json:"status" example:"success"`
+    Hash   string `json:"hash" example:"0xabcd1234..."`
+    TxHash string `json:"tx_hash" example:"0x1234abcd..."`
+}
 ```
 
 ---
@@ -636,11 +1088,40 @@ The API uses Go annotations to generate documentation:
 
 ## 🏛️ Clean Code Architecture
 
-The project follows clean code principles with clear separation of concerns:
+The project follows **clean architecture** and **separation of concerns** principles:
+
+### Layer Structure
+
+```
+┌─────────────────────────────────────────────────┐
+│          Presentation Layer (cmd/)              │
+│      CLI Interface    |    API Server           │
+└──────────────┬──────────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────────┐
+│         Handler Layer (internal/handlers/)      │
+│  Certificate Handlers  |  Admin Handlers        │
+└──────────────┬──────────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────────┐
+│      Business Logic (internal/blockchain/)      │
+│  GenerateHash | RegisterCertificate | Verify    │
+└──────────────┬──────────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────────┐
+│    Data Access Layer (internal/repository/)     │
+│  Database Queries  |  Transaction Management    │
+└──────────────┬──────────────────────────────────┘
+               │
+┌──────────────▼──────────────────────────────────┐
+│       Infrastructure (database/, models/)       │
+│   PostgreSQL   |   Ethereum Client   |  Models  │
+└─────────────────────────────────────────────────┘
+```
 
 ### Core Business Logic (`internal/blockchain/logic.go`)
 
-All certificate-related operations are centralized in a single file:
+All certificate operations centralized:
 
 ```go
 // GenerateHash - Creates Keccak256 hash of any file
@@ -665,22 +1146,61 @@ func VerifyCertificate(
 ) (*CertificateData, error)
 ```
 
+### Handler Layer (`internal/handlers/`)
+
+HTTP request handling separated by domain:
+
+- **`certificate.go`**: Certificate registration and verification handlers
+- **`admin.go`**: Institution management handlers
+
+Each handler:
+- ✅ Validates input
+- ✅ Calls business logic
+- ✅ Returns structured responses
+- ✅ Handles errors appropriately
+
+### Repository Layer (`internal/repository/`)
+
+Database operations abstracted:
+
+- Certificate CRUD operations
+- Institution management
+- Trial usage tracking
+- Billing log recording
+
+### Configuration (`internal/config/`)
+
+Centralized configuration management:
+
+- Environment variable loading
+- Validation
+- Default values
+- Error handling
+
+### Middleware (`internal/middleware/`)
+
+Reusable cross-cutting concerns:
+
+- Admin authentication
+- (Future: Rate limiting, logging, metrics)
+
 ### Benefits of Current Architecture
 
-✅ **Single Responsibility**: Each function has one clear purpose  
-✅ **DRY Principle**: Logic shared between CLI and API  
-✅ **Testability**: Pure functions can be unit tested independently  
-✅ **Maintainability**: Changes to business logic happen in one place  
-✅ **Scalability**: Easy to add new interfaces (WebSocket, gRPC, etc.)
+✅ **Single Responsibility**: Each module has one clear purpose  
+✅ **DRY Principle**: Logic shared between interfaces  
+✅ **Testability**: Pure functions can be unit tested  
+✅ **Maintainability**: Changes isolated to specific layers  
+✅ **Scalability**: Easy to add new interfaces  
+✅ **Separation of Concerns**: UI, business logic, and data access decoupled
 
 ### Interface Layer
 
-Both CLI and API are thin wrappers around `logic.go`:
+Both CLI and API are thin wrappers:
 
-- **CLI** (`cmd/cli/main.go`): Parses arguments, calls logic, formats output
-- **API** (`cmd/api/main.go`): Handles HTTP, file uploads, calls logic, returns JSON
+- **CLI** (`cmd/cli/main.go`): Parses arguments → calls logic → formats output
+- **API** (`cmd/api/main.go`): Routes requests → initializes dependencies → delegates to handlers
 
-This makes it trivial to add new interfaces without duplicating business logic.
+This makes it trivial to add new interfaces (gRPC, WebSocket, GraphQL) without duplicating business logic.
 
 ---
 
